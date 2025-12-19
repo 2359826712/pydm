@@ -24,10 +24,16 @@ class Set_Game_Window(py_trees.behaviour.Behaviour):
         self.blackboard = self.attach_blackboard_client()
         self.blackboard.register_key(key="bind_windows", access=py_trees.common.Access.WRITE)#READ
         self.blackboard.register_key(key="bind_windows", access=py_trees.common.Access.READ)#READ
+        self.blackboard.register_key(key="window_hwd", access=py_trees.common.Access.WRITE)#READ
+        self.blackboard.register_key(key="window_hwd", access=py_trees.common.Access.READ)#READ
         self.time = 0
     def update(self) -> py_trees.common.Status:
         # FindWindow(class, title)
-        window_hwd = arc_api.FindWindowByProcess("PioneerGame.exe")
+        if not self.blackboard.get("window_hwd"):
+            window_hwd = arc_api.FindWindowByProcess("PioneerGame.exe")
+            self.blackboard.set("window_hwd",window_hwd)
+        else:
+            window_hwd = self.blackboard.get("window_hwd")
         if window_hwd > 0:
             print(f"游戏已启动, 句柄: {window_hwd}")
             if not self.blackboard.get("bind_windows"):
