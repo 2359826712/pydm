@@ -70,8 +70,8 @@ class Start_Game(py_trees.behaviour.Behaviour):
         if int(pos[0]) > 0 :
             time.sleep(0.5)
             print("点击开始")
-            arc_api.mouse_click(1402,736,0)
-        pos2 = arc_api.FindPicE(914,511,988,534,"ready.bmp","ffbc13-000000",1.0,0)
+            arc_api.mouse_click(1387,751,0)
+        pos2 = arc_api.FindColorE(916,523,986,539,"ffbc13-000000",1.0,0)
         pos2 = pos2.split("|")
         if int(pos2[1]) > 0:
             time.sleep(0.5)
