@@ -36,7 +36,7 @@ class Exit_Game(py_trees.behaviour.Behaviour):
             self.blackboard.need_invite = True
             self.blackboard.count_game += 1
         
-        exit_pos = arc_api.FindPicE(90,614,182,657,"exit.bmp","090c19-000000|ebdecb-000000|a4a5aa-000000",1.0,0)
+        exit_pos = arc_api.FindColorE(98,628,123,659,"a3a4a9-000000|0b0e1b-000000|a4a5aa-000000",1.0,0)
         exit_pos = exit_pos.split("|")
         if int(exit_pos[1]) > 0:
             time.sleep(0.5)
