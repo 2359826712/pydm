@@ -17,6 +17,7 @@ if __name__ == "__main__":
     blackboard.set("in_game",False)
     blackboard.set("need_invite",False)
     blackboard.set("count_game",0)
+    blackboard.set("window_hwd",None)
     tree =  main_tree()
     while True:
         try:
