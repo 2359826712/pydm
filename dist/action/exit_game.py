@@ -24,6 +24,7 @@ class Exit_Game(py_trees.behaviour.Behaviour):
         self.blackboard = self.attach_blackboard_client()
         self.blackboard.register_key(key="in_game", access=py_trees.common.Access.WRITE)#READ
         self.blackboard.register_key(key="need_invite", access=py_trees.common.Access.WRITE)#READ
+        self.blackboard.register_key(key="count_game", access=py_trees.common.Access.WRITE)#READ
         self.time = 0
     def update(self) -> py_trees.common.Status:
         print("退出游戏")
@@ -33,6 +34,7 @@ class Exit_Game(py_trees.behaviour.Behaviour):
             time.sleep(0.5)
             print("继续页面")
             self.blackboard.need_invite = True
+            self.blackboard.count_game += 1
         
         exit_pos = arc_api.FindPicE(90,614,182,657,"exit.bmp","090c19-000000|ebdecb-000000|a4a5aa-000000",1.0,0)
         exit_pos = exit_pos.split("|")

@@ -24,6 +24,7 @@ class Invite(py_trees.behaviour.Behaviour):
         self.blackboard = self.attach_blackboard_client()
         self.blackboard.register_key(key="in_game", access=py_trees.common.Access.WRITE)#READ
         self.blackboard.register_key(key="need_invite", access=py_trees.common.Access.WRITE)#READ
+        self.blackboard.register_key(key="count_game", access=py_trees.common.Access.READ)#READ
         self.time = 0
         self.account = 0
         self.click_account = 0
@@ -36,7 +37,9 @@ class Invite(py_trees.behaviour.Behaviour):
             print("点击继续")
             arc_api.mouse_click(1501,860,0)
             return py_trees.common.Status.RUNNING
-        
+        if self.blackboard.count_game < 4:
+            self.blackboard.need_invite = False
+            return py_trees.common.Status.RUNNING
         pos = arc_api.FindColorE(1317,124,1391,148,"ffbc13-000000|090c19-000000",1.0,0)
         pos = pos.split("|")
         if int(pos[0]) <= 0 :
