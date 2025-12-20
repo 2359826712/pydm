@@ -74,8 +74,7 @@ class Arc_api:
              # 源码模式
              script_dir = os.path.dirname(os.path.abspath(__file__))
              pic_dir = os.path.abspath(os.path.join(script_dir, "..", "pic"))
-             
-        dm.SetPath(pic_dir)
+        self.pic_dir = pic_dir
         dm.SetKeypadDelay("normal",30)
     def FindWindow(self,clas="",title=""):
         return dm.FindWindow(clas,title )
@@ -120,8 +119,11 @@ class Arc_api:
         return dm.FindMultiColorE(x1, y1, x2, y2,first_color,offset_color,sim, dir)
 
     def FindPicE(self,x1, y1, x2, y2, pic_name, delta_color,sim, dir):
-        return dm.FindPicE(x1, y1, x2, y2, pic_name, delta_color,sim, dir)
-
+        pic = f"{self.pic_dir}\\{pic_name}"
+        return dm.FindPicE(x1, y1, x2, y2, pic, delta_color,sim, dir)
+    def FindPic(self,x1, y1, x2, y2, pic_name, delta_color,sim, dir):
+        pic = f"{self.pic_dir}\\{pic_name}"
+        return dm.FindPic(x1, y1, x2, y2, pic, delta_color,sim, dir)
     def _vk_to_key_name(self, vk_code):
         vk_map = {
             "0": 48,
@@ -192,3 +194,7 @@ class Arc_api:
             return 0
     def WheelDown(self):
         return dm.WheelDown()
+
+    def KillProcess(self, process_name):
+        """强制结束指定进程"""
+        os.system(f'taskkill /f /im {process_name}')
