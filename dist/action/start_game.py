@@ -23,6 +23,7 @@ class Start_Game(py_trees.behaviour.Behaviour):
         super(Start_Game, self).__init__(name)
         self.blackboard = self.attach_blackboard_client()
         self.blackboard.register_key(key="need_invite", access=py_trees.common.Access.READ)#READ
+        self.blackboard.register_key(key="need_invite", access=py_trees.common.Access.WRITE)#READ
         self.blackboard.register_key(key="in_game", access=py_trees.common.Access.READ)#READ
         self.blackboard.register_key(key="count_game", access=py_trees.common.Access.WRITE)#READ
         self.blackboard.register_key(key="count_game", access=py_trees.common.Access.READ)#READ
@@ -58,27 +59,43 @@ class Start_Game(py_trees.behaviour.Behaviour):
             return py_trees.common.Status.SUCCESS
         if self.blackboard.count_game >= 4:
             self.blackboard.count_game = 0
-        pos = arc_api.FindColorE(1317,124,1391,148,"ffbc13-000000|090c19-000000",1.0,0)
-        pos = pos.split("|")
-        if int(pos[0]) > 0 :
+        friend_pos = arc_api.FindPic(0,0,1413,181,"friend.bmp","000000",1.0,0)
+        if int(friend_pos[1]) > 0 :
+            print("找到添加好友")
+            near_pos = arc_api.FindColorE(685,117,758,152,"f9eedf-000000",1.0,0)
+            near_pos = near_pos.split("|")
+            if int(near_pos[0]) <= 0 :
+                time.sleep(0.5)
+                time.sleep(1)
+                arc_api.mouse_click(722,136,0)
+                return py_trees.common.Status.RUNNING
             time.sleep(0.5)
             print("点击esc")
             self.click_account = 0
             arc_api.click_keyworld("esc")
             time.sleep(1.5)
             return py_trees.common.Status.RUNNING
-        play_pos = arc_api.FindPicE(544,418,945,697,"da_ba.bmp","000000",1.0,0)
-        play_pos = play_pos.split("|")
-        if int(play_pos[1]) > 0 :
+        continue_pos_pic = arc_api.FindPic(0,0,1541,911,"continue.bmp","000000",1.0,0)
+        if int(continue_pos_pic[1]) > 0:
             time.sleep(0.5)
-            print("点击大坝战场")
-            arc_api.mouse_click(745,475,0)
+            print("继续页面")
+            self.blackboard.need_invite = True
+            self.blackboard.count_game += 1
             return py_trees.common.Status.RUNNING
-        pos = arc_api.FindColorE(1256,711,1549,781,"ffbc13-000000|090c19-000000",1.0,0)
+        pos = arc_api.FindColorE(1256,711,1549,781,"ffbc13-000000",1.0,0)
         pos = pos.split("|")
         if int(pos[0]) > 0 :
             time.sleep(0.5)
             print("点击开始")
             arc_api.mouse_click(1402,736,0)
             return py_trees.common.Status.RUNNING
+        else:
+            map_select = arc_api.FindColorE(432,442,593,600,"9c8b71-000000|94846c-000000",1.0,0)
+            map_select = map_select.split("|")
+            if int(map_select[1]) > 0:
+                time.sleep(0.5)
+                print("点击地图")
+                arc_api.mouse_click(745,475,0)
+                return py_trees.common.Status.RUNNING
+        
         return py_trees.common.Status.SUCCESS

@@ -31,8 +31,8 @@ class Set_Game_Window(py_trees.behaviour.Behaviour):
     def update(self) -> py_trees.common.Status:
         # FindWindow(class, title)
         window_hwd = arc_api.FindWindowByProcess("PioneerGame.exe")
+        self.blackboard.set("window_hwd",window_hwd)
         if window_hwd > 0:
-            self.blackboard.set("window_hwd",window_hwd)
             window_rect = arc_api.GetWindowRect(window_hwd)
             if window_rect[3] - window_rect[1] <= 800 and window_rect[4] - window_rect[2] <= 450 :
                 print("游戏加载...")
@@ -54,10 +54,11 @@ class Set_Game_Window(py_trees.behaviour.Behaviour):
                         print("移动窗口")
                         arc_api.MoveWindow(window_hwd,0,0)
                         self.time = 0
-                    if window_rect[3] - window_rect[1] != 1616 or window_rect[4] - window_rect[2] != 939 :
-                        print("设置窗口大小")
-                        arc_api.SetWindowSize(window_hwd,1600,900)
-                        return py_trees.common.Status.RUNNING
+            if window_rect[3] - window_rect[1] != 1616 or window_rect[4] - window_rect[2] != 939 :
+                print("设置窗口大小") 
+                arc_api.SetWindowSize(window_hwd,1616,939)
+                arc_api.SetClientSize(window_hwd,1600,900)
+                return py_trees.common.Status.RUNNING
             return py_trees.common.Status.SUCCESS
         else:
             print("游戏未启动")
@@ -72,13 +73,14 @@ class Set_Game_Window(py_trees.behaviour.Behaviour):
                 arc_api.SetWindowState(steam_window_hwd,8)
                 print("解除置顶steam窗口")
                 arc_api.SetWindowState(steam_window_hwd,9)
+                print("查找启动按钮")
                 start_button = arc_api.FindPicE(0,0,2000,2000,"start_button.bmp","000000",0.9,0)
                 start_button = start_button.split("|")
                 if int(start_button[1]) > 0 :
                     time.sleep(0.5)
-                    print("点击关闭")
+                    print("点击启动按钮")
                     arc_api.mouse_click(start_button[1],start_button[2],0)
                     time.sleep(1.5)
-                    arc_api.UnBindWindow()
+                arc_api.UnBindWindow()
             return py_trees.common.Status.FAILURE
         

@@ -4,6 +4,7 @@ import sys
 import struct
 import win32gui
 import win32process
+import time
 
 # 检查 Python 位数
 is_64bits = struct.calcsize('P') * 8 == 64
@@ -96,14 +97,16 @@ class Arc_api:
     def SetWindowSize(self,hwnd,width,height):
         ret = dm.SetWindowSize(hwnd,width,height)
         return ret
-
+    def SetClientSize(self,hwnd,width,height):
+        ret = dm.SetClientSize(hwnd,width,height)
+        return ret
     def MoveWindow(self,hwd,x,y):
         return dm.MoveWindow(hwd,x,y) 
 
     def SetWindowState(self,hwnd,flag):
         ret = dm.SetWindowState(hwnd,flag)
         return ret  
-
+     
     def mouse_click(self,x,y,state):
         mouse_mov = dm.MoveTo(x,y)
         if mouse_mov == 1:
@@ -187,9 +190,10 @@ class Arc_api:
         return vk_map.get(vk_code, '')
 
     def click_keyworld(self,key,state = 0):
-        key = self._vk_to_key_name(key)
         if state == 0:
-            dm.KeyPress(key)
+            dm.KeyDownChar(key)
+            time.sleep(0.1)
+            dm.KeyUpChar(key)
         else:
             return 0
     def WheelDown(self):

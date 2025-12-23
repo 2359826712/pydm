@@ -30,7 +30,21 @@ class Invite(py_trees.behaviour.Behaviour):
         self.click_account = 0
     def update(self) -> py_trees.common.Status:
         self.blackboard.in_game = False
-        continue_pos = arc_api.FindColorE(1478,848,1523,874,"f9eedf-000000|646264-000000",1.0,0)
+        pos = arc_api.FindColorE(26,787,266,869,"54c8e9-000000|ffffff-000000",1.0,0)
+        pos = pos.split("|")
+        if int(pos[1]) > 0:
+            time.sleep(0.5)
+            self.blackboard.need_invite = False
+            self.blackboard.in_game = True
+            time.sleep(1)
+            return py_trees.common.Status.RUNNING
+        continue_pos_pic = arc_api.FindPic(1480,875,1541,911,"continue.bmp","000000",1.0,0)
+        if int(continue_pos_pic[1]) > 0:
+            time.sleep(0.5)
+            print("点击继续")
+            arc_api.mouse_click(1501,860,0)
+            return py_trees.common.Status.RUNNING
+        continue_pos = arc_api.FindColorE(1480,875,1541,911,"f9eedf-000000|646264-000000",1.0,0)
         continue_pos = continue_pos.split("|")
         if int(continue_pos[1]) > 0:
             time.sleep(0.5)
