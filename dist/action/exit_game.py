@@ -28,22 +28,19 @@ class Exit_Game(py_trees.behaviour.Behaviour):
         self.time = 0
     def update(self) -> py_trees.common.Status:
         print("退出游戏")
-        continue_pos_pic = arc_api.FindPic(1480,875,1541,911,"continue.bmp","000000",1.0,0)
-        continue_pos = arc_api.FindColorE(1480,875,1541,911,"f9eedf-000000|646264-000000",1.0,0)
-        continue_pos = continue_pos.split("|")
-        if int(continue_pos[1]) > 0 or int(continue_pos_pic[1]) > 0:
-            time.sleep(0.5)
-            print("继续页面")
-            self.blackboard.need_invite = True
-            self.blackboard.count_game += 1
-            return py_trees.common.Status.RUNNING
-        
         exit_pos = arc_api.FindColorE(98,628,123,659,"a3a4a9-000000|0b0e1b-000000|a4a5aa-000000",1.0,0)
         exit_pos = exit_pos.split("|")
         if int(exit_pos[1]) > 0:
             time.sleep(0.5)
             print("点击投降")
             arc_api.mouse_click(135,637,0)
+        continue_pos_pic = arc_api.FindPic(0,0,1541,911,"continue.bmp","000000",1.0,0)
+        if int(continue_pos_pic[1]) > 0:
+            time.sleep(0.5)
+            print("继续页面")
+            self.blackboard.need_invite = True
+            self.blackboard.count_game += 1
+            return py_trees.common.Status.RUNNING
         yse_pos = arc_api.FindColorE(937,508,962,538,"ffbc13-000000|705616-000000",1.0,0)
         yse_pos = yse_pos.split("|")
         if int(yse_pos[1]) > 0:
