@@ -1,5 +1,5 @@
 ([('game_script.exe',
-   'C:\\Users\\lsx\\Desktop\\pydm\\build_temp\\game_script\\game_script.exe',
+   'D:\\Desktop\\pydm\\build_temp\\game_script\\game_script.exe',
    'EXECUTABLE'),
   ('python313.dll',
    'C:\\Users\\lsx\\AppData\\Local\\Programs\\Python\\Python313-32\\python313.dll',
@@ -89,5 +89,5 @@
    'C:\\Users\\lsx\\AppData\\Local\\Programs\\Python\\Python313-32\\Lib\\site-packages\\Pythonwin\\mfc140u.dll',
    'BINARY'),
   ('base_library.zip',
-   'C:\\Users\\lsx\\Desktop\\pydm\\build_temp\\game_script\\base_library.zip',
+   'D:\\Desktop\\pydm\\build_temp\\game_script\\base_library.zip',
    'DATA')],)
