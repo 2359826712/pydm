@@ -202,3 +202,29 @@ class Arc_api:
     def KillProcess(self, process_name):
         """强制结束指定进程"""
         os.system(f'taskkill /f /im {process_name}')
+
+    def select_mode(self):
+        """读取 select_mode.txt 中的 model 值"""
+        try:
+            if getattr(sys, 'frozen', False):
+                 # exe 模式
+                 file_path = os.path.join(os.path.dirname(sys.executable), "select_mode.txt")
+            else:
+                 # 源码模式
+                 script_dir = os.path.dirname(os.path.abspath(__file__))
+                 file_path = os.path.abspath(os.path.join(script_dir, "..", "select_mode.txt"))
+            
+            if not os.path.exists(file_path):
+                print(f"配置文件不存在: {file_path}")
+                return None
+                
+            with open(file_path, 'r', encoding='utf-8') as f:
+                for line in f:
+                    if "model" in line and "=" in line:
+                        parts = line.split('=')
+                        if len(parts) > 1:
+                            return parts[1].strip()
+            return None
+        except Exception as e:
+            print(f"读取配置文件失败: {e}")
+            return None

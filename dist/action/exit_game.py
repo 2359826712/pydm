@@ -23,7 +23,7 @@ class Exit_Game(py_trees.behaviour.Behaviour):
         super(Exit_Game, self).__init__(name)
         self.blackboard = self.attach_blackboard_client()
         self.blackboard.register_key(key="in_game", access=py_trees.common.Access.WRITE)#READ
-        self.blackboard.register_key(key="need_invite", access=py_trees.common.Access.WRITE)#READ
+        self.blackboard.register_key(key="need_collect", access=py_trees.common.Access.WRITE)#READ
         self.blackboard.register_key(key="count_game", access=py_trees.common.Access.WRITE)#READ
         self.time = 0
     def update(self) -> py_trees.common.Status:
@@ -38,7 +38,7 @@ class Exit_Game(py_trees.behaviour.Behaviour):
         if int(continue_pos_pic[1]) > 0:
             time.sleep(0.5)
             print("继续页面")
-            self.blackboard.need_invite = True
+            self.blackboard.need_collect = True
             self.blackboard.count_game += 1
             return py_trees.common.Status.RUNNING
         yse_pos = arc_api.FindColorE(937,508,962,538,"ffbc13-000000|705616-000000",1.0,0)
