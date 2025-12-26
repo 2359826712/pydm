@@ -22,8 +22,8 @@ class Start_Game(py_trees.behaviour.Behaviour):
     def __init__(self,  name="开始游戏"):
         super(Start_Game, self).__init__(name)
         self.blackboard = self.attach_blackboard_client()
-        self.blackboard.register_key(key="need_invite", access=py_trees.common.Access.READ)#READ
-        self.blackboard.register_key(key="need_invite", access=py_trees.common.Access.WRITE)#READ
+        self.blackboard.register_key(key="need_collect", access=py_trees.common.Access.READ)#READ
+        self.blackboard.register_key(key="need_collect", access=py_trees.common.Access.WRITE)#READ
         self.blackboard.register_key(key="in_game", access=py_trees.common.Access.READ)#READ
         self.blackboard.register_key(key="count_game", access=py_trees.common.Access.WRITE)#READ
         self.blackboard.register_key(key="count_game", access=py_trees.common.Access.READ)#READ
@@ -51,8 +51,12 @@ class Start_Game(py_trees.behaviour.Behaviour):
             print("点击中间弹窗")
             arc_api.mouse_click(948,523,0)
             return py_trees.common.Status.RUNNING
-        if self.blackboard.need_invite:
-            print("需要邀请")
+            
+        if arc_api.select_mode =="2" :
+            print("发送好友申请")
+            return py_trees.common.Status.FAILURE
+        if self.blackboard.need_collect:
+            print("需要收集")
             return py_trees.common.Status.FAILURE
         if self.blackboard.in_game:
             print("在游戏内")
@@ -79,7 +83,7 @@ class Start_Game(py_trees.behaviour.Behaviour):
         if int(continue_pos_pic[1]) > 0:
             time.sleep(0.5)
             print("继续页面")
-            self.blackboard.need_invite = True
+            self.blackboard.need_collect = True
             self.blackboard.count_game += 1
             return py_trees.common.Status.RUNNING
         pos = arc_api.FindColorE(1256,711,1549,781,"ffbc13-000000",1.0,0)

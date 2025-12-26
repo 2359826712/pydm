@@ -7,11 +7,8 @@ def post_tick_handler(main_flow, snapshot_visitor, behaviour_tree):
     pass
 
 def main_tree():
-
-    set_game = py_trees.composites.Selector(name="设置游戏窗口", memory=False)
-    set_game.add_children([action.Set_Game_Window()])
     start_game = py_trees.composites.Selector(name="启动游戏", memory=False)
-    start_game.add_children([action.Start_Game(),action.Invite()])
+    start_game.add_children([action.Start_Game(),action.Invite(),action.Collect()])
 
     exit_game = py_trees.composites.Selector(name="退出游戏", memory=False)
     exit_game.add_children([action.Exit_Game()])
@@ -24,7 +21,7 @@ def main_tree():
     # 主业务流程
     main_flow = py_trees.composites.Sequence(name="核心流程", memory=False)
     main_flow.add_children([
-        set_game, # 加入游戏
+        action.Set_Game_Window(), # 设置游戏窗口
         start_game,
         exit_game,
     ])

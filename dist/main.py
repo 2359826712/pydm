@@ -1,3 +1,4 @@
+from calendar import c
 import os
 import sys
 import keyboard
@@ -15,9 +16,10 @@ if __name__ == "__main__":
     blackboard = py_trees.blackboard.Blackboard()
     blackboard.set("bind_windows",False)
     blackboard.set("in_game",False)
-    blackboard.set("need_invite",False)
-    blackboard.set("count_game",0)
+    blackboard.set("need_collect",True)
+    blackboard.set("count_game",4)
     blackboard.set("window_hwd",None)
+    blackboard.set("create_collect",None)
     tree =  main_tree()
     while True:
         try:

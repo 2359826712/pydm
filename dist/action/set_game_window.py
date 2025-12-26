@@ -28,11 +28,12 @@ class Set_Game_Window(py_trees.behaviour.Behaviour):
         self.blackboard.register_key(key="window_hwd", access=py_trees.common.Access.READ)#READ
         self.time = 0
         self.time1 = 0
+        self.retry_count = 0
     def update(self) -> py_trees.common.Status:
-        # FindWindow(class, title)
         window_hwd = arc_api.FindWindowByProcess("PioneerGame.exe")
         self.blackboard.set("window_hwd",window_hwd)
         if window_hwd > 0:
+            self.retry_count = 0
             window_rect = arc_api.GetWindowRect(window_hwd)
             if window_rect[3] - window_rect[1] <= 800 and window_rect[4] - window_rect[2] <= 450 :
                 print("游戏加载...")
@@ -62,25 +63,19 @@ class Set_Game_Window(py_trees.behaviour.Behaviour):
             return py_trees.common.Status.SUCCESS
         else:
             print("游戏未启动")
-            self.blackboard.set("bind_windows",False)
-            steam_window_hwd = arc_api.FindWindowByProcess("steamwebhelper.exe")
-            if steam_window_hwd > 0 and not self.blackboard.get("window_hwd"):
-                print("绑定steam窗口")
-                arc_api.BindWindow(steam_window_hwd)
-                print("最大化steam窗口")
-                arc_api.SetWindowState(steam_window_hwd,7)
-                print("置顶steam窗口")
-                arc_api.SetWindowState(steam_window_hwd,8)
-                print("解除置顶steam窗口")
-                arc_api.SetWindowState(steam_window_hwd,9)
-                print("查找启动按钮")
-                start_button = arc_api.FindPicE(0,0,2000,2000,"start_button.bmp","000000",0.9,0)
-                start_button = start_button.split("|")
-                if int(start_button[1]) > 0 :
-                    time.sleep(0.5)
-                    print("点击启动按钮")
-                    arc_api.mouse_click(start_button[1],start_button[2],0)
-                    time.sleep(1.5)
-                arc_api.UnBindWindow()
+            if self.time1 and time.time() - self.time1 < 180 :
+                print("等待游戏启动")
+                time.sleep(1)
+                return py_trees.common.Status.RUNNING
+            elif self.time1 == 0 or time.time() - self.time1 >= 180 :
+                print("cmd启动游戏")
+                os.startfile("steam://rungameid/1808500")
+                self.time1 = time.time()
+                self.retry_count += 1
+                if self.retry_count > 3:
+                    arc_api.KillProcess("PioneerGame.exe")
+                    time.sleep(1)
+                    arc_api.KillProcess("steam.exe")
+                    self.retry_count = 0
             return py_trees.common.Status.FAILURE
         
