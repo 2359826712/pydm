@@ -16,6 +16,7 @@ client = ApiClient()
 game_manager = ArcGameManager()
 
 
+import json
 import logging
 # 配置日志记录器
 logging.basicConfig(level=logging.DEBUG)
@@ -30,7 +31,27 @@ class Collect(py_trees.behaviour.Behaviour):
         self.blackboard.register_key(key="need_collect", access=py_trees.common.Access.WRITE)#READ
         self.blackboard.register_key(key="create_collect", access=py_trees.common.Access.READ)#READ
         self.blackboard.register_key(key="create_collect", access=py_trees.common.Access.WRITE)#READ
+        self.blackboard.register_key(key="init_dll", access=py_trees.common.Access.READ)#READ
         self.time = 0
+        self.cache_file = os.path.join(script_dir, "friend_cache.json")
+        self.local_friends = self._load_cache()
+
+    def _load_cache(self):
+        if os.path.exists(self.cache_file):
+            try:
+                with open(self.cache_file, "r", encoding="utf-8") as f:
+                    return set(json.load(f))
+            except Exception as e:
+                logger.error(f"读取缓存失败: {e}")
+        return set()
+
+    def _save_cache(self):
+        try:
+            with open(self.cache_file, "w", encoding="utf-8") as f:
+                json.dump(list(self.local_friends), f, ensure_ascii=False)
+        except Exception as e:
+            logger.error(f"保存缓存失败: {e}")
+
     def update(self) -> py_trees.common.Status:
         self.blackboard.in_game = False
         pos = arc_api.FindColorE(26,787,266,869,"54c8e9-000000|ffffff-000000",1.0,0)
@@ -62,7 +83,20 @@ class Collect(py_trees.behaviour.Behaviour):
             if self.blackboard.init_dll:
                 friend_list = game_manager.get_friend_list()
                 print(f"\n===== 好友列表（共 {len(friend_list)} 个） =====")
+                
+                has_new_friend = False
                 for idx, friend in enumerate(friend_list):
-                    client.insert_data("arc_game",friend['name'],"1","1",50)
+                    friend_name = friend['name']
+                    if friend_name not in self.local_friends:
+                        print(f"上报新好友: {friend_name}")
+                        client.insert_data("arc_game", friend_name, "1", "1", 50)
+                        self.local_friends.add(friend_name)
+                        has_new_friend = True
+                
+                if has_new_friend:
+                    self._save_cache()
+                    print("已更新好友缓存")
+                else:
+                    print("好友列表无变化，跳过上报")
         
         return py_trees.common.Status.RUNNING
