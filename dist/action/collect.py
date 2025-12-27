@@ -98,5 +98,6 @@ class Collect(py_trees.behaviour.Behaviour):
                     print("已更新好友缓存")
                 else:
                     print("好友列表无变化，跳过上报")
-        
+        else:
+            arc_api.click_keyworld("esc")
         return py_trees.common.Status.RUNNING

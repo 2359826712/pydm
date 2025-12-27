@@ -32,7 +32,7 @@ class Invite(py_trees.behaviour.Behaviour):
         self.create_number = 0
     def update(self) -> py_trees.common.Status:
         if arc_api.select_mode() !="2" :
-            print("发送好友申请")
+            print("收集id")
             return py_trees.common.Status.FAILURE
         status_code, response = client.query_data("arc_game", 86400, 1, 10)
         if status_code != 200:

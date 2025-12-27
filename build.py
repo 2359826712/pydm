@@ -30,6 +30,7 @@ PyInstaller.__main__.run([
     '--hidden-import=arcapi',    # 添加 arcapi
     '--hidden-import=keyboard',  # 添加 keyboard
     '--hidden-import=threading', # 添加 threading
+    '--hidden-import=winreg',    # 添加 winreg
     # '--windowed', # 如果不需要控制台窗口取消注释
 ])
 
