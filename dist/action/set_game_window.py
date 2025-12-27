@@ -38,7 +38,6 @@ class Set_Game_Window(py_trees.behaviour.Behaviour):
             if window_rect[3] - window_rect[1] <= 800 and window_rect[4] - window_rect[2] <= 450 :
                 print("游戏加载...")
                 return py_trees.common.Status.RUNNING
-            print(f"游戏已启动, 句柄: {window_hwd}")
             if not self.blackboard.get("bind_windows"):
                 if arc_api.BindWindow(window_hwd):
                     print("绑定窗口")
