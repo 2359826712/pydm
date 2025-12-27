@@ -32,9 +32,16 @@ class Set_Game_Window(py_trees.behaviour.Behaviour):
         self.time1 = 0
         self.retry_count = 0
         self.clean_data = False
+        self.last_window_hwd = 0
+
     def update(self) -> py_trees.common.Status:
         window_hwd = arc_api.FindWindowByProcess("PioneerGame.exe")
         self.blackboard.set("window_hwd",window_hwd)
+
+        if window_hwd != self.last_window_hwd:
+            self.blackboard.set("bind_windows", False)
+            self.last_window_hwd = window_hwd
+
         if window_hwd > 0:
             self.clean_data = False
             self.retry_count = 0

@@ -50,8 +50,8 @@ class Invite(py_trees.behaviour.Behaviour):
             if '#' in account:
                 parts = account.split('#')
                 if len(parts) >= 2:
-                    name = parts[0]
-                    friend_id = "#" + parts[1]
+                    name = parts[0] 
+                    friend_id = parts[1]
                     game_manager.add_friend(name, friend_id)
         names.clear()
         return py_trees.common.Status.RUNNING

@@ -29,7 +29,8 @@ class Is_Not_Init(py_trees.behaviour.Behaviour):
         self.blackboard.register_key(key="init_dll", access=py_trees.common.Access.READ)#READ
         self.time = 0
     def update(self) -> py_trees.common.Status:
-        if self.blackboard.init_dll == False:
+        if not self.blackboard.init_dll:
+            print("正在初始化dll")
             return py_trees.common.Status.SUCCESS
         else:
             return py_trees.common.Status.FAILURE

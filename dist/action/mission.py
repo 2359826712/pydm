@@ -7,7 +7,7 @@ def post_tick_handler(main_flow, snapshot_visitor, behaviour_tree):
     pass
 
 def main_tree():
-    init_dll = py_trees.composites.Selector(name="初始化dll", memory=False)
+    init_dll = py_trees.composites.Sequence(name="初始化dll", memory=False)
     init_dll.add_children([action.Is_Not_Init(),action.Init_Dll()])
     start_game = py_trees.composites.Selector(name="启动游戏", memory=False)
     start_game.add_children([action.Start_Game(),init_dll,action.Invite(),action.Collect()])
