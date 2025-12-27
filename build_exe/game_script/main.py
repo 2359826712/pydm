@@ -2,7 +2,9 @@ from calendar import c
 import os
 import sys
 import keyboard
-
+from arcapi.api_client import ApiClient
+client = ApiClient()
+client.clear_talk_channel("arc_game",1)
 script_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(script_dir,))  # 添加上一级目录
 sys.path.append(f"{script_dir}\\action")
