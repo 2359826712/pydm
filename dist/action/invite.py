@@ -63,6 +63,6 @@ class Invite(py_trees.behaviour.Behaviour):
                     if self.count % 100 == 0:
                         print("已添加1000次，插入固定好友: MMOELD.COM_items#8311")
                         game_manager.add_friend("MMOELD.COM_items", "8311")
-                        time.sleep(0.1)
+                        time.sleep(0.2)
         names.clear()
         return py_trees.common.Status.RUNNING

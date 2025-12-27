@@ -16,7 +16,7 @@ def build():
     # We exclude 'action' and 'arcapi' to keep them as external source files
     args = [
         os.path.join(src_dir, 'main.py'),
-        '--name=main',
+        '--name=game_script',
         '--onedir',
         '--noconfirm',
         '--distpath', output_dir,
@@ -34,7 +34,7 @@ def build():
     PyInstaller.__main__.run(args)
     
     # Post-build copy
-    exe_dir = os.path.join(output_dir, 'main')
+    exe_dir = os.path.join(output_dir, 'game_script')
     
     print("Copying external resources...")
     

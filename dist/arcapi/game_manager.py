@@ -88,6 +88,7 @@ class ArcGameManager:
             os.path.join("x64", "Release", "arc.dll"),
             # 脚本所在目录的子目录
             os.path.join(os.path.dirname(os.path.abspath(__file__)), "arc.dll"),
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "arc.dll"), # Added parent directory search
             os.path.join(os.path.dirname(os.path.abspath(__file__)), "x64", "Debug", "arc.dll"),
             os.path.join(os.path.dirname(os.path.abspath(__file__)), "x64", "Release", "arc.dll"),
             # 你提供的示例路径
