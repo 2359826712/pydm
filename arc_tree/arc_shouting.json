@@ -18,12 +18,26 @@
           },
           {
             "id": 5,
+            "name": "Sequence",
+            "children": [
+              {
+                "id": 6,
+                "name": "is_not_ Initialize"
+              },
+              {
+                "id": 7,
+                "name": " Initialize"
+              }
+            ]
+          },
+          {
+            "id": 8,
             "name": "Invite"
           }
         ]
       },
       {
-        "id": 6,
+        "id": 9,
         "name": "Exit_Game"
       }
     ]

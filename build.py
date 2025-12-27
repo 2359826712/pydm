@@ -29,6 +29,7 @@ PyInstaller.__main__.run([
     '--hidden-import=py_trees',  # 添加 py_trees
     '--hidden-import=arcapi',    # 添加 arcapi
     '--hidden-import=keyboard',  # 添加 keyboard
+    '--hidden-import=threading', # 添加 threading
     # '--windowed', # 如果不需要控制台窗口取消注释
 ])
 

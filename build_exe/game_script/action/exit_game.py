@@ -10,10 +10,8 @@ import py_trees
 import time
 from arcapi import Arc_api, dm
 from api_client import ApiClient
-from game_manager import ArcGameManager
 arc_api = Arc_api()
 client = ApiClient()
-game_manager = ArcGameManager()
 
 import logging
 # 配置日志记录器
@@ -29,7 +27,6 @@ class Exit_Game(py_trees.behaviour.Behaviour):
         self.blackboard.register_key(key="need_collect", access=py_trees.common.Access.WRITE)#READ
         self.time = 0
     def update(self) -> py_trees.common.Status:
-        print("退出游戏")
         exit_pos = arc_api.FindColorE(98,628,123,659,"a3a4a9-000000|0b0e1b-000000|a4a5aa-000000",1.0,0)
         exit_pos = exit_pos.split("|")
         if int(exit_pos[1]) > 0:
@@ -52,10 +49,6 @@ class Exit_Game(py_trees.behaviour.Behaviour):
         pos = pos.split("|")
         if int(pos[1]) > 0:
             time.sleep(1.5)
-            friend_list = game_manager.get_friend_list()
-            print(f"\n===== 好友列表（共 {len(friend_list)} 个） =====")
-            for idx, friend in enumerate(friend_list):
-                client.insert_data("arc_game",friend['name'],"1","1",50)
             arc_api.click_keyworld("esc")
             self.blackboard.in_game = True
         return py_trees.common.Status.RUNNING

@@ -60,6 +60,7 @@ class ArcGameManager:
         # 加载 DLL 并设置函数签名
         self._load_dll()
         self._setup_functions()
+        
 
     def _search_dll_path(self) -> str:
         """自动搜索 arc.dll 的常见路径"""
@@ -122,6 +123,31 @@ class ArcGameManager:
             logger.error("DLL 中未找到 GameCore_FreeFriendListResult 函数")
             raise
 
+        # 3. GameCore_AddFriend: bool __stdcall GameCore_AddFriend(const char* name, const char* id)
+        try:
+            self.dll.GameCore_AddFriend.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
+            self.dll.GameCore_AddFriend.restype = ctypes.c_bool
+            logger.info("设置 GameCore_AddFriend 函数签名成功")
+        except AttributeError:
+            logger.error("DLL 中未找到 GameCore_AddFriend 函数")
+            raise
+
+        # 4. GameCore_InitGameData: void __stdcall GameCore_InitGameData()
+        try:
+            self.dll.GameCore_InitGameData.argtypes = []
+            self.dll.GameCore_InitGameData.restype = None
+            logger.info("设置 GameCore_InitGameData 函数签名成功")
+        except AttributeError:
+            logger.warning("DLL 中未找到 GameCore_InitGameData 函数 (如果是旧版 DLL 可忽略)")
+
+        # 5. GameCore_CleanupGameData: void __stdcall GameCore_CleanupGameData()
+        try:
+            self.dll.GameCore_CleanupGameData.argtypes = []
+            self.dll.GameCore_CleanupGameData.restype = None
+            logger.info("设置 GameCore_CleanupGameData 函数签名成功")
+        except AttributeError:
+            logger.warning("DLL 中未找到 GameCore_CleanupGameData 函数 (如果是旧版 DLL 可忽略)")
+
     def get_friend_list(self) -> List[Dict[str, any]]:
         """
         核心接口：调用 GameCore_TraverseFriendList 获取好友列表
@@ -181,16 +207,63 @@ class ArcGameManager:
                 logger.info("释放好友列表内存...")
                 self.dll.GameCore_FreeFriendListResult(result_ptr)
 
-    def close(self) -> None:
-        """清理资源（卸载 DLL）"""
-        if self.dll:
-            # 注意：ctypes 会自动管理 DLL 卸载，这里主要是标记状态
-            self._is_loaded = False
-            logger.info("已清理 GameManager 资源")
+    def add_friend(self, name: str, friend_id: str) -> bool:
+        """
+        调用 GameCore_AddFriend 添加好友
+        :param name: 好友名称
+        :param friend_id: 好友ID
+        :return: 添加是否成功
+        """
+        if not self._is_loaded:
+            raise RuntimeError("DLL 未加载，无法添加好友")
+
+        try:
+            # 确保传入的是 UTF-8 编码的字节串
+            name_bytes = name.encode("utf-8")
+            id_bytes = friend_id.encode("utf-8")
+
+            logger.info(f"正在添加好友: Name={name}, ID={friend_id}")
+            result = self.dll.GameCore_AddFriend(name_bytes, id_bytes)
+            
+            if result:
+                logger.info("添加好友成功")
+            else:
+                logger.warning("添加好友失败")
+            
+            return result
+
+        except Exception as e:
+            logger.error(f"添加好友异常: {e}")
+            return False
+
+    def init_game_data(self) -> None:
+        """初始化游戏数据"""
+        if not self._is_loaded:
+            raise RuntimeError("DLL 未加载")
+        
+        try:
+            if hasattr(self.dll, 'GameCore_InitGameData'):
+                self.dll.GameCore_InitGameData()
+                logger.info("已调用 GameCore_InitGameData")
+            else:
+                logger.warning("GameCore_InitGameData 不存在，跳过初始化")
+        except Exception as e:
+            logger.error(f"初始化游戏数据异常: {e}")
+
+    def cleanup_game_data(self) -> None:
+        """清理游戏数据"""
+        if not self._is_loaded:
+            return
+
+        try:
+            if hasattr(self.dll, 'GameCore_CleanupGameData'):
+                self.dll.GameCore_CleanupGameData()
+                logger.info("已调用 GameCore_CleanupGameData")
+        except Exception as e:
+            logger.error(f"清理游戏数据异常: {e}")
 
     def __del__(self):
         """析构函数：确保资源释放"""
-        self.close()
 
 # --------------------------
 # 上下文管理器（可选，更优雅的资源管理）

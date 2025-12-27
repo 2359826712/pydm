@@ -9,8 +9,9 @@ from time import thread_time_ns
 import py_trees
 import time
 from arcapi import Arc_api, dm
+from game_manager import ArcGameManager
 arc_api = Arc_api()
-
+game_manager = ArcGameManager()
 
 import logging
 # 配置日志记录器
@@ -26,13 +27,16 @@ class Set_Game_Window(py_trees.behaviour.Behaviour):
         self.blackboard.register_key(key="bind_windows", access=py_trees.common.Access.READ)#READ
         self.blackboard.register_key(key="window_hwd", access=py_trees.common.Access.WRITE)#READ
         self.blackboard.register_key(key="window_hwd", access=py_trees.common.Access.READ)#READ
+        self.blackboard.register_key(key="init_dll", access=py_trees.common.Access.WRITE)#READ
         self.time = 0
         self.time1 = 0
         self.retry_count = 0
+        self.clean_data = False
     def update(self) -> py_trees.common.Status:
         window_hwd = arc_api.FindWindowByProcess("PioneerGame.exe")
         self.blackboard.set("window_hwd",window_hwd)
         if window_hwd > 0:
+            self.clean_data = False
             self.retry_count = 0
             window_rect = arc_api.GetWindowRect(window_hwd)
             if window_rect[3] - window_rect[1] <= 800 and window_rect[4] - window_rect[2] <= 450 :
@@ -61,7 +65,10 @@ class Set_Game_Window(py_trees.behaviour.Behaviour):
                 return py_trees.common.Status.RUNNING
             return py_trees.common.Status.SUCCESS
         else:
-            print("游戏未启动")
+            self.blackboard.set("init_dll",False)
+            if not self.clean_data:
+                game_manager.cleanup_game_data()
+                self.clean_data = True
             if self.time1 and time.time() - self.time1 < 180 :
                 print("等待游戏启动")
                 time.sleep(1)
