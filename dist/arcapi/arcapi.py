@@ -82,17 +82,35 @@ class Arc_api:
     def FindWindowByProcess(self,process_name,clas="",title=""):
         return dm.FindWindowByProcess(process_name,clas,title)
     def BindWindow(self,hwnd,display="normal",mouse="normal",keypad="normal",mode=0):
-        return dm.BindWindow(hwnd,display,mouse,keypad,mode)
+        try:
+            return dm.BindWindow(hwnd,display,mouse,keypad,mode)
+        except Exception as e:
+            print(f"BindWindow error: {e}")
+            return 0
 
     def UnBindWindow(self):
         print("解绑窗口")
-        return dm.UnBindWindow()
+        try:
+            return dm.UnBindWindow()
+        except Exception as e:
+            print(f"UnBindWindow error: {e}")
+            return 0
+            
     def GetWindowState(self,hwd,flag):
-        ret = dm.GetWindowState(hwd,flag)
-        return ret
+        try:
+            ret = dm.GetWindowState(hwd,flag)
+            return ret
+        except Exception as e:
+            print(f"GetWindowState error: {e}")
+            return 0
+            
     def GetWindowRect(self,hwd):
-        ret = dm.GetWindowRect(hwd)
-        return ret
+        try:
+            ret = dm.GetWindowRect(hwd)
+            return ret
+        except Exception as e:
+            print(f"GetWindowRect error: {e}")
+            return (0,0,0,0)
 
     def SetWindowSize(self,hwnd,width,height):
         ret = dm.SetWindowSize(hwnd,width,height)
