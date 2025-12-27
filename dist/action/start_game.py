@@ -15,7 +15,7 @@ arc_api = Arc_api()
 client = ApiClient()
 game_manager = ArcGameManager()
 
-
+import json
 import logging
 # 配置日志记录器
 logging.basicConfig(level=logging.DEBUG)
@@ -35,6 +35,25 @@ class Start_Game(py_trees.behaviour.Behaviour):
         self.time = 0
         self.create_number  = 0
         self.first_add_friend  = False
+        self.cache_file = os.path.join(script_dir, "friend_cache.json")
+        self.local_friends = self._load_cache()
+
+    def _load_cache(self):
+        if os.path.exists(self.cache_file):
+            try:
+                with open(self.cache_file, "r", encoding="utf-8") as f:
+                    return set(json.load(f))
+            except Exception as e:
+                logger.error(f"读取缓存失败: {e}")
+        return set()
+
+    def _save_cache(self):
+        try:
+            with open(self.cache_file, "w", encoding="utf-8") as f:
+                json.dump(list(self.local_friends), f, ensure_ascii=False)
+        except Exception as e:
+            logger.error(f"保存缓存失败: {e}")
+
     def update(self) -> py_trees.common.Status:
         if not self.blackboard.create_collect:
             code, resp = client.create_new_game("arc_game")
@@ -54,8 +73,21 @@ class Start_Game(py_trees.behaviour.Behaviour):
             self.first_add_friend = True
             friend_list = game_manager.get_friend_list()
             print(f"\n===== 好友列表（共 {len(friend_list)} 个） =====")
+            
+            has_new_friend = False
             for idx, friend in enumerate(friend_list):
-                client.insert_data("arc_game",friend['name'],"1","1",50)
+                friend_name = friend['name']
+                if friend_name not in self.local_friends:
+                    print(f"上报新好友: {friend_name}")
+                    client.insert_data("arc_game", friend_name, "1", "1", 50)
+                    self.local_friends.add(friend_name)
+                    has_new_friend = True
+            
+            if has_new_friend:
+                self._save_cache()
+                print("已更新好友缓存")
+            else:
+                print("好友列表无变化，跳过上报")
         close_pos = arc_api.FindPicE(0,0,1450,645,"close.bmp","000000",1.0,0)
         close_pos = close_pos.split("|")
         if int(close_pos[1]) > 0 :
