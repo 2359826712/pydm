@@ -46,7 +46,7 @@ class Invite(py_trees.behaviour.Behaviour):
                 account = item.get("account")
                 if account:
                     names.append(account)
-        time.sleep(0.5)
+        time.sleep(0.1)
         self.count = 0
         for account in names:
             if '#' in account:
@@ -60,7 +60,7 @@ class Invite(py_trees.behaviour.Behaviour):
                     # 计数器递增
                     self.count += 1
                     # 每1000次插入一次固定好友
-                    if self.count % 10 == 0:
+                    if self.count % 100 == 0:
                         print("已添加1000次，插入固定好友: MMOELD.COM_items#8311")
                         game_manager.add_friend("MMOEXPsellitem18", "0342")
                         time.sleep(0.2)
