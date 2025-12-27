@@ -30,26 +30,6 @@ class Init_Dll(py_trees.behaviour.Behaviour):
         self.blackboard.register_key(key="init_dll", access=py_trees.common.Access.WRITE)#READ
         self.time = 0
         self.account = 0 # 确保 self.account 被初始化
-        
-    def _check_and_click_continue(self):
-        """检查并点击继续按钮"""
-        # 检查图片
-        continue_pos_pic = arc_api.FindPic(1480,875,1541,911,"continue.bmp","000000",1.0,0)
-        if int(continue_pos_pic[1]) > 0:
-            time.sleep(0.5)
-            print("点击继续(图片)")
-            arc_api.mouse_click(1501,860,0)
-            return True
-            
-        # 检查颜色
-        continue_pos = arc_api.FindColorE(1480,875,1541,911,"f9eedf-000000|646264-000000",1.0,0)
-        continue_pos = continue_pos.split("|")
-        if int(continue_pos[1]) > 0:
-            time.sleep(0.5)
-            print("点击继续(颜色)")
-            arc_api.mouse_click(1501,860,0)
-            return True
-        return False
 
     def _async_init_data(self):
         """异步执行 game_manager.init_game_data()"""
@@ -74,14 +54,11 @@ class Init_Dll(py_trees.behaviour.Behaviour):
         pos = arc_api.FindColorE(26,787,266,869,"54c8e9-000000|ffffff-000000",1.0,0)
         pos = pos.split("|")
         if int(pos[1]) > 0:
+            print("正在游戏")
             time.sleep(0.5)
             self.blackboard.need_invite = False
             self.blackboard.in_game = True
             time.sleep(1)
-            return py_trees.common.Status.RUNNING
-
-        # 2. 检查继续按钮
-        if self._check_and_click_continue():
             return py_trees.common.Status.RUNNING
 
         # 4. 检查是否在 ESC 菜单或其他界面
@@ -99,8 +76,8 @@ class Init_Dll(py_trees.behaviour.Behaviour):
         near_pos = arc_api.FindColorE(685,117,758,152,"f9eedf-000000",1.0,0)
         near_pos = near_pos.split("|")
         if int(near_pos[0]) <= 0 :
-            time.sleep(0.5)
-            time.sleep(1)
+            print("点击最近")
+            time.sleep(1.5)
             arc_api.mouse_click(722,136,0)
             return py_trees.common.Status.RUNNING
 
