@@ -60,6 +60,7 @@ class Init_Dll(py_trees.behaviour.Behaviour):
         init_thread = Thread(target=game_manager.init_game_data)
         init_thread.daemon = True
         init_thread.start()
+        time.sleep(1)
 
     def _handle_steam_glob_click(self, x1, y1, x2, y2, click_x, click_y_steam, click_y_glob):
         """处理 Steam/Global 图标识别并点击"""
@@ -74,7 +75,6 @@ class Init_Dll(py_trees.behaviour.Behaviour):
             arc_api.mouse_click(click_x, click_y_glob, 0)
 
     def update(self) -> py_trees.common.Status:
-        # 1. 检查是否在游戏中
         pos = arc_api.FindColorE(26,787,266,869,"54c8e9-000000|ffffff-000000",1.0,0)
         pos = pos.split("|")
         if int(pos[1]) > 0:
@@ -105,7 +105,7 @@ class Init_Dll(py_trees.behaviour.Behaviour):
             arc_api.mouse_click(722,136,0)
             return py_trees.common.Status.RUNNING
 
-        # 6. 主要逻辑：点击并检查加号位置
+         # 6. 主要逻辑：点击并检查加号位置
         time.sleep(1.5)
         arc_api.mouse_click(830,236,1)
         time.sleep(1.5)
