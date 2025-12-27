@@ -29,7 +29,6 @@ class Exit_Game(py_trees.behaviour.Behaviour):
         self.blackboard.register_key(key="need_collect", access=py_trees.common.Access.WRITE)#READ
         self.time = 0
     def update(self) -> py_trees.common.Status:
-        print("退出游戏")
         exit_pos = arc_api.FindColorE(98,628,123,659,"a3a4a9-000000|0b0e1b-000000|a4a5aa-000000",1.0,0)
         exit_pos = exit_pos.split("|")
         if int(exit_pos[1]) > 0:
