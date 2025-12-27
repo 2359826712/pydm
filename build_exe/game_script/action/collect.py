@@ -59,10 +59,10 @@ class Collect(py_trees.behaviour.Behaviour):
         pos = pos.split("|")
         if int(pos[0]) <= 0 :
             self.blackboard.need_collect = False
-            friend_list = game_manager.get_friend_list()
-            print(f"\n===== 好友列表（共 {len(friend_list)} 个） =====")
-            for idx, friend in enumerate(friend_list):
-                client.insert_data("arc_game",friend['name'],"1","1",50)
-            return py_trees.common.Status.RUNNING
+            if self.blackboard.init_dll:
+                friend_list = game_manager.get_friend_list()
+                print(f"\n===== 好友列表（共 {len(friend_list)} 个） =====")
+                for idx, friend in enumerate(friend_list):
+                    client.insert_data("arc_game",friend['name'],"1","1",50)
         
         return py_trees.common.Status.RUNNING

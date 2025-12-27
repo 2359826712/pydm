@@ -28,9 +28,33 @@ class Init_Dll(py_trees.behaviour.Behaviour):
         self.blackboard = self.attach_blackboard_client()
         self.blackboard.register_key(key="init_dll", access=py_trees.common.Access.READ)#READ
         self.blackboard.register_key(key="init_dll", access=py_trees.common.Access.WRITE)#READ
+        self.blackboard.register_key(key="need_collect", access=py_trees.common.Access.READ)#READ
+        self.blackboard.register_key(key="need_collect", access=py_trees.common.Access.WRITE)#READ
+        self.blackboard.register_key(key="in_game", access=py_trees.common.Access.READ)#READ
+        self.blackboard.register_key(key="in_game", access=py_trees.common.Access.WRITE)#READ
         self.time = 0
         self.account = 0 # 确保 self.account 被初始化
 
+    def _check_and_click_continue(self):
+        """检查并点击继续按钮"""
+        # 检查图片
+        continue_pos_pic = arc_api.FindPic(1480,875,1541,911,"continue.bmp","000000",1.0,0)
+        if int(continue_pos_pic[1]) > 0:
+            time.sleep(0.5)
+            print("点击继续(图片)")
+            arc_api.mouse_click(1501,860,0)
+            return True
+            
+        # 检查颜色
+        continue_pos = arc_api.FindColorE(1480,875,1541,911,"f9eedf-000000|646264-000000",1.0,0)
+        continue_pos = continue_pos.split("|")
+        if int(continue_pos[1]) > 0:
+            time.sleep(0.5)
+            print("点击继续(颜色)")
+            arc_api.mouse_click(1501,860,0)
+            return True
+        return False
+    
     def _async_init_data(self):
         """异步执行 game_manager.init_game_data()"""
         init_thread = Thread(target=game_manager.init_game_data)
@@ -56,11 +80,12 @@ class Init_Dll(py_trees.behaviour.Behaviour):
         if int(pos[1]) > 0:
             print("正在游戏")
             time.sleep(0.5)
-            self.blackboard.need_invite = False
             self.blackboard.in_game = True
             time.sleep(1)
             return py_trees.common.Status.RUNNING
-
+        # 2. 检查继续按钮
+        if self._check_and_click_continue():
+            return py_trees.common.Status.RUNNING
         # 4. 检查是否在 ESC 菜单或其他界面
         pos = arc_api.FindColorE(1317,124,1391,148,"ffbc13-000000|090c19-000000",1.0,0)
         pos = pos.split("|")

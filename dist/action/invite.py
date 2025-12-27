@@ -45,7 +45,7 @@ class Invite(py_trees.behaviour.Behaviour):
                 account = item.get("account")
                 if account:
                     names.append(account)
-        
+        time.sleep(0.5)
         for account in names:
             if '#' in account:
                 parts = account.split('#')
@@ -53,5 +53,6 @@ class Invite(py_trees.behaviour.Behaviour):
                     name = parts[0] 
                     friend_id = parts[1]
                     game_manager.add_friend(name, friend_id)
+                    time.sleep(0.1)
         names.clear()
         return py_trees.common.Status.RUNNING
