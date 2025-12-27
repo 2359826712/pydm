@@ -66,7 +66,9 @@ class Arc_api:
         dm.SetMouseDelay("normal",30)
         dm.SetKeypadDelay("normal",30)
         dm.SetMouseSpeed(6)
-        
+        a =dm.SetShowErrorMsg(0)
+        print(a)
+        print(1111111111111111111111)
         # 设置 pic 目录
         if getattr(sys, 'frozen', False):
              # exe 模式：在 exe 同级目录下找 pic 文件夹
@@ -124,18 +126,22 @@ class Arc_api:
     def SetWindowState(self,hwnd,flag):
         ret = dm.SetWindowState(hwnd,flag)
         return ret  
-     
     def mouse_click(self,x,y,state):
-        mouse_mov = dm.MoveTo(x,y)
-        if mouse_mov == 1:
-            if state == 0:
-                dm.LeftClick()
-            elif state == 1:
-                dm.RightClick()
+        try:
+            mouse_mov = dm.MoveTo(x,y)
+            if mouse_mov == 1:
+                if state == 0:
+                    dm.LeftClick()
+                elif state == 1:
+                    dm.RightClick()
+        except Exception as e:
+            print(f"mouse_click error: {e}")
+            # 如果点击失败（通常是因为窗口丢失），尝试清理环境
+            self.KillProcess("WerFault.exe")
 
     def FindColorE(self,x1, y1, x2, y2, color, sim, dir):
         return dm.FindColorE(x1, y1, x2, y2, color, sim, dir)
-
+    
     def FindMultiColorE(self,x1, y1, x2, y2,first_color,offset_color,sim, dir):
         return dm.FindMultiColorE(x1, y1, x2, y2,first_color,offset_color,sim, dir)
 
