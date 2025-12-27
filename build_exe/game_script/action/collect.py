@@ -63,6 +63,7 @@ class Collect(py_trees.behaviour.Behaviour):
             self.blackboard.in_game = True
             time.sleep(1)
             return py_trees.common.Status.RUNNING
+        self.blackboard.in_game = False
         continue_pos_pic = arc_api.FindPic(1480,875,1541,911,"continue.bmp","000000",1.0,0)
         if int(continue_pos_pic[1]) > 0:
             time.sleep(0.5)

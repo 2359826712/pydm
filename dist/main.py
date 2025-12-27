@@ -15,6 +15,9 @@ import py_trees
 from action.mission import main_tree
 arc_api = Arc_api()
 arc_api.init_data()
+import traceback
+import time
+
 if __name__ == "__main__":
     blackboard = py_trees.blackboard.Blackboard()
     blackboard.set("bind_windows",False)
@@ -34,5 +37,15 @@ if __name__ == "__main__":
            
         except Exception as e:
             print(f"发生了一个错误: {e}")
-            traceback.print_exc()
-            arc_api.UnBindWindow()
+            try:
+                traceback.print_exc()
+            except:
+                pass
+            
+            # 遇到错误不要退出循环，而是尝试清理并继续
+            print("尝试从错误中恢复...")
+            try:
+                arc_api.UnBindWindow()
+            except:
+                pass
+            time.sleep(1) # 防止死循环刷屏

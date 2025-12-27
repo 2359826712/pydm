@@ -49,13 +49,31 @@ class Set_Game_Window(py_trees.behaviour.Behaviour):
             print(f"禁用 WER 失败: {e}")
 
     def update(self) -> py_trees.common.Status:
-        window_hwd = arc_api.FindWindowByProcess("PioneerGame.exe")
+        # 优先检测崩溃弹窗
+        wer_hwd = arc_api.FindWindowByProcess("WerFault.exe")
+        if wer_hwd > 0:
+            print("检测到崩溃弹窗 (WerFault)，正在清理...")
+            arc_api.KillProcess("WerFault.exe")
+            arc_api.KillProcess("PioneerGame.exe")
+            time.sleep(1)
+            # 强制重置 window_hwd 触发重启逻辑
+            window_hwd = 0
+        else:
+            window_hwd = arc_api.FindWindowByProcess("PioneerGame.exe")
+            
         self.blackboard.set("window_hwd",window_hwd)
 
         if window_hwd != self.last_window_hwd:
             self.blackboard.set("bind_windows", False)
             self.last_window_hwd = window_hwd
 
+        if window_hwd > 0:
+            # 二次验证：确保句柄真的有效（避免进程刚死但句柄还在的极短窗口期）
+            if arc_api.GetWindowState(window_hwd, 0) == 0:
+                print("窗口句柄已失效")
+                window_hwd = 0
+                self.blackboard.set("window_hwd", 0)
+        
         if window_hwd > 0:
             self.clean_data = False
             self.retry_count = 0
@@ -84,7 +102,6 @@ class Set_Game_Window(py_trees.behaviour.Behaviour):
                 arc_api.SetWindowSize(window_hwd,1616,939)
                 arc_api.SetClientSize(window_hwd,1600,900)
                 return py_trees.common.Status.RUNNING
-            arc_api.UnBindWindow()
             return py_trees.common.Status.SUCCESS
         else:
             self.blackboard.set("init_dll",False)
