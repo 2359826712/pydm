@@ -84,6 +84,7 @@ class Set_Game_Window(py_trees.behaviour.Behaviour):
                 arc_api.SetWindowSize(window_hwd,1616,939)
                 arc_api.SetClientSize(window_hwd,1600,900)
                 return py_trees.common.Status.RUNNING
+            arc_api.UnBindWindow()
             return py_trees.common.Status.SUCCESS
         else:
             self.blackboard.set("init_dll",False)
