@@ -18,6 +18,8 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger("节点")
 
+import winreg
+
 class Set_Game_Window(py_trees.behaviour.Behaviour):
 
     def __init__(self,  name="设置游戏窗口"):
@@ -33,6 +35,18 @@ class Set_Game_Window(py_trees.behaviour.Behaviour):
         self.retry_count = 0
         self.clean_data = False
         self.last_window_hwd = 0
+        self._disable_wer()
+
+    def _disable_wer(self):
+        """禁用 Windows Error Reporting 以防止崩溃弹窗"""
+        try:
+            key_path = r"Software\Microsoft\Windows\Windows Error Reporting"
+            with winreg.CreateKey(winreg.HKEY_CURRENT_USER, key_path) as key:
+                winreg.SetValueEx(key, "DontShowUI", 0, winreg.REG_DWORD, 1)
+                winreg.SetValueEx(key, "Disabled", 0, winreg.REG_DWORD, 1)
+            print("已禁用 Windows Error Reporting (WER)")
+        except Exception as e:
+            print(f"禁用 WER 失败: {e}")
 
     def update(self) -> py_trees.common.Status:
         window_hwd = arc_api.FindWindowByProcess("PioneerGame.exe")
@@ -82,6 +96,10 @@ class Set_Game_Window(py_trees.behaviour.Behaviour):
                 return py_trees.common.Status.RUNNING
             elif self.time1 == 0 or time.time() - self.time1 >= 180 :
                 print("cmd启动游戏")
+                # 启动前清理可能的僵尸进程和错误弹窗
+                arc_api.KillProcess("WerFault.exe")
+                arc_api.KillProcess("PioneerGame.exe")
+                
                 os.startfile("steam://rungameid/1808500")
                 self.time1 = time.time()
                 self.retry_count += 1

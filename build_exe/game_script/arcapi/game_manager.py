@@ -1,5 +1,6 @@
 import ctypes
 import os
+import threading
 from typing import List, Optional, Dict
 import logging
 
@@ -42,11 +43,24 @@ class ArcGameManager:
     2. 调用 GameCore_TraverseFriendList 获取好友列表
     3. 自动管理 C++ 端分配的内存，避免内存泄漏
     """
+    _instance = None
+    _lock = threading.Lock()
+
+    def __new__(cls, *args, **kwargs):
+        if not cls._instance:
+            with cls._lock:
+                if not cls._instance:
+                    cls._instance = super(ArcGameManager, cls).__new__(cls)
+        return cls._instance
+
     def __init__(self, dll_path: Optional[str] = None):
         """
         初始化管理器
         :param dll_path: arc.dll 的路径，不传则自动搜索常见路径
         """
+        if hasattr(self, '_initialized') and self._initialized:
+            return
+
         self.dll: Optional[ctypes.CDLL] = None
         self._dll_path: str = ""
         self._is_loaded: bool = False
@@ -60,7 +74,9 @@ class ArcGameManager:
         # 加载 DLL 并设置函数签名
         self._load_dll()
         self._setup_functions()
+        self.load_driver()
         
+        self._initialized = True
 
     def _search_dll_path(self) -> str:
         """自动搜索 arc.dll 的常见路径"""
@@ -147,6 +163,14 @@ class ArcGameManager:
             logger.info("设置 GameCore_CleanupGameData 函数签名成功")
         except AttributeError:
             logger.warning("DLL 中未找到 GameCore_CleanupGameData 函数 (如果是旧版 DLL 可忽略)")
+
+        # 6. GameCore_LoadDriver: bool __stdcall GameCore_LoadDriver()
+        try:
+            self.dll.GameCore_LoadDriver.argtypes = []
+            self.dll.GameCore_LoadDriver.restype = ctypes.c_bool
+            logger.info("设置 GameCore_LoadDriver 函数签名成功")
+        except AttributeError:
+            logger.warning("DLL 中未找到 GameCore_LoadDriver 函数")
 
     def get_friend_list(self) -> List[Dict[str, any]]:
         """
@@ -262,6 +286,34 @@ class ArcGameManager:
         except Exception as e:
             logger.error(f"清理游戏数据异常: {e}")
 
+    def load_driver(self) -> bool:
+        """
+        调用 GameCore_LoadDriver 加载驱动
+        :return: 加载是否成功
+        """
+        if not self._is_loaded:
+            raise RuntimeError("DLL 未加载")
+        
+        try:
+            if hasattr(self.dll, 'GameCore_LoadDriver'):
+                logger.info("开始加载驱动...")
+                result = self.dll.GameCore_LoadDriver()
+                if result:
+                    logger.info("驱动加载成功")
+                else:
+                    logger.error("驱动加载失败")
+                return result
+            else:
+                logger.error("GameCore_LoadDriver 不存在")
+                return False
+        except Exception as e:
+            logger.error(f"加载驱动异常: {e}")
+            return False
+
+    def close(self) -> None:
+        """释放资源"""
+        self.cleanup_game_data()
+
     def __del__(self):
         """析构函数：确保资源释放"""
 
@@ -306,10 +358,17 @@ if __name__ == "__main__":
     # 方式2：上下文管理器（推荐，自动管理资源）
     try:
         with ArcGameManagerContext() as gm:
+            gm.init_game_data()
             friend_list = gm.get_friend_list()
             print(f"\n===== 好友列表（共 {len(friend_list)} 个） =====")
             for idx, friend in enumerate(friend_list):
                 print(f"[{idx+1}] ID: {friend['id']} | 名称: {friend['name']} | 唯一标识: {friend['unique_id']}")
+
+            #死循环 每一秒打印打印当前时间
+            import time
+            while True:
+                print(f"当前时间: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}")
+                time.sleep(1)
     except FileNotFoundError as e:
         logger.error(f"DLL 加载失败: {e}")
     except Exception as e:
