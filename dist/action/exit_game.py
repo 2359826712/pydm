@@ -9,8 +9,11 @@ import time
 import py_trees
 import time
 from arcapi import Arc_api, dm
+from api_client import ApiClient
+from game_manager import ArcGameManager
 arc_api = Arc_api()
-
+client = ApiClient()
+game_manager = ArcGameManager()
 
 import logging
 # 配置日志记录器
@@ -24,7 +27,6 @@ class Exit_Game(py_trees.behaviour.Behaviour):
         self.blackboard = self.attach_blackboard_client()
         self.blackboard.register_key(key="in_game", access=py_trees.common.Access.WRITE)#READ
         self.blackboard.register_key(key="need_collect", access=py_trees.common.Access.WRITE)#READ
-        self.blackboard.register_key(key="count_game", access=py_trees.common.Access.WRITE)#READ
         self.time = 0
     def update(self) -> py_trees.common.Status:
         print("退出游戏")
@@ -39,7 +41,6 @@ class Exit_Game(py_trees.behaviour.Behaviour):
             time.sleep(0.5)
             print("继续页面")
             self.blackboard.need_collect = True
-            self.blackboard.count_game += 1
             return py_trees.common.Status.RUNNING
         yse_pos = arc_api.FindColorE(937,508,962,538,"ffbc13-000000|705616-000000",1.0,0)
         yse_pos = yse_pos.split("|")
@@ -50,9 +51,11 @@ class Exit_Game(py_trees.behaviour.Behaviour):
         pos = arc_api.FindColorE(26,787,266,869,"54c8e9-000000|ffffff-000000",1.0,0)
         pos = pos.split("|")
         if int(pos[1]) > 0:
-            time.sleep(0.5)
-            print("点击esc")
+            time.sleep(1.5)
+            friend_list = game_manager.get_friend_list()
+            print(f"\n===== 好友列表（共 {len(friend_list)} 个） =====")
+            for idx, friend in enumerate(friend_list):
+                client.insert_data("arc_game",friend['name'],"1","1",50)
             arc_api.click_keyworld("esc")
             self.blackboard.in_game = True
-            time.sleep(1)
         return py_trees.common.Status.RUNNING

@@ -1,0 +1,3 @@
+[setting]
+model = 1
+1 采集 2加好友

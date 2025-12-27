@@ -9,7 +9,11 @@ import time
 import py_trees
 import time
 from arcapi import Arc_api, dm
+from api_client import ApiClient
+from game_manager import ArcGameManager
 arc_api = Arc_api()
+client = ApiClient()
+game_manager = ArcGameManager()
 
 
 import logging
@@ -25,11 +29,32 @@ class Start_Game(py_trees.behaviour.Behaviour):
         self.blackboard.register_key(key="need_collect", access=py_trees.common.Access.READ)#READ
         self.blackboard.register_key(key="need_collect", access=py_trees.common.Access.WRITE)#READ
         self.blackboard.register_key(key="in_game", access=py_trees.common.Access.READ)#READ
-        self.blackboard.register_key(key="count_game", access=py_trees.common.Access.WRITE)#READ
-        self.blackboard.register_key(key="count_game", access=py_trees.common.Access.READ)#READ
+        self.blackboard.register_key(key="create_collect", access=py_trees.common.Access.READ)#READ
+        self.blackboard.register_key(key="create_collect", access=py_trees.common.Access.WRITE)#READ
         self.time = 0
+        self.create_number  = 0
+        self.first_add_friend  = False
     def update(self) -> py_trees.common.Status:
-        print("开始游戏")
+        if not self.blackboard.create_collect:
+            code, resp = client.create_new_game("arc_game")
+            if code == 200:
+                print("创建服务器数据表成功")
+            else:
+                print("创建服务器数据表失败")
+                print("状态码：",code)
+                if self.create_number >= 10 :
+                    logger.error("多次创建服务器数据表失败")
+                self.create_number = self.create_number + 1
+                time.sleep(1)
+                return bret.RUNNING
+        self.create_number  = 0
+        self.blackboard.create_collect = True
+        if not self.first_add_friend :
+            self.first_add_friend = True
+            friend_list = game_manager.get_friend_list()
+            print(f"\n===== 好友列表（共 {len(friend_list)} 个） =====")
+            for idx, friend in enumerate(friend_list):
+                client.insert_data("arc_game",friend['name'],"1","1",50)
         close_pos = arc_api.FindPicE(0,0,1450,645,"close.bmp","000000",1.0,0)
         close_pos = close_pos.split("|")
         if int(close_pos[1]) > 0 :
@@ -61,8 +86,6 @@ class Start_Game(py_trees.behaviour.Behaviour):
         if self.blackboard.in_game:
             print("在游戏内")
             return py_trees.common.Status.SUCCESS
-        if self.blackboard.count_game >= 4:
-            self.blackboard.count_game = 0
         friend_pos = arc_api.FindPic(0,0,1413,181,"friend.bmp","000000",1.0,0)
         if int(friend_pos[1]) > 0 :
             print("找到添加好友")
@@ -84,7 +107,6 @@ class Start_Game(py_trees.behaviour.Behaviour):
             time.sleep(0.5)
             print("继续页面")
             self.blackboard.need_collect = True
-            self.blackboard.count_game += 1
             return py_trees.common.Status.RUNNING
         pos = arc_api.FindColorE(1256,711,1549,781,"ffbc13-000000",1.0,0)
         pos = pos.split("|")
