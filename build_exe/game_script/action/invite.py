@@ -10,8 +10,10 @@ import py_trees
 import time
 from arcapi import Arc_api, dm
 from api_client import ApiClient
+from game_manager import ArcGameManager
 arc_api = Arc_api()
 client = ApiClient()
+game_manager = ArcGameManager()
 
 
 import logging
@@ -29,18 +31,27 @@ class Invite(py_trees.behaviour.Behaviour):
         self.time = 0
         self.create_number = 0
     def update(self) -> py_trees.common.Status:
-        if arc_api.select_mode !="2" :
+        if arc_api.select_mode() !="2" :
             print("发送好友申请")
             return py_trees.common.Status.FAILURE
-        pos = arc_api.FindColorE(1317,124,1391,148,"ffbc13-000000|090c19-000000",1.0,0)
-        pos = pos.split("|")
-        if int(pos[0]) <= 0 :
-            time.sleep(0.5)
-            print("点击esc")
-            self.click_account = 0
-            arc_api.click_keyworld("esc")
-            time.sleep(1.5)
+        status_code, response = client.query_data("arc_game", 86400, 1, 10)
+        if status_code != 200:
+            print("查询游戏数据失败")
             return py_trees.common.Status.RUNNING
+        data = response.get("data", [])
+        names = []
+        if isinstance(data, list):
+            for item in data:
+                account = item.get("account")
+                if account:
+                    names.append(account)
         
-        
+        for account in names:
+            if '#' in account:
+                parts = account.split('#')
+                if len(parts) >= 2:
+                    name = parts[0]
+                    friend_id = "#" + parts[1]
+                    game_manager.add_friend(name, friend_id)
+        names.clear()
         return py_trees.common.Status.RUNNING

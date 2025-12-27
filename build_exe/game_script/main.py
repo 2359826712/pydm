@@ -20,6 +20,7 @@ if __name__ == "__main__":
     blackboard.set("need_collect",False)
     blackboard.set("window_hwd",None)
     blackboard.set("create_collect",None)
+    blackboard.set("init_dll",False)
     tree =  main_tree()
     
     while True:
