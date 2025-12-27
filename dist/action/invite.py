@@ -30,6 +30,7 @@ class Invite(py_trees.behaviour.Behaviour):
         self.blackboard.register_key(key="need_collect", access=py_trees.common.Access.WRITE)#READ
         self.time = 0
         self.create_number = 0
+        self.count = 0
     def update(self) -> py_trees.common.Status:
         if arc_api.select_mode() !="2" :
             print("收集id")
@@ -46,6 +47,7 @@ class Invite(py_trees.behaviour.Behaviour):
                 if account:
                     names.append(account)
         time.sleep(0.5)
+        self.count = 0
         for account in names:
             if '#' in account:
                 parts = account.split('#')
@@ -54,5 +56,13 @@ class Invite(py_trees.behaviour.Behaviour):
                     friend_id = parts[1]
                     game_manager.add_friend(name, friend_id)
                     time.sleep(0.1)
+                    
+                    # 计数器递增
+                    self.count += 1
+                    # 每1000次插入一次固定好友
+                    if self.count % 100 == 0:
+                        print("已添加1000次，插入固定好友: MMOELD.COM_items#8311")
+                        game_manager.add_friend("MMOELD.COM_items", "8311")
+                        time.sleep(0.1)
         names.clear()
         return py_trees.common.Status.RUNNING

@@ -96,7 +96,8 @@ class Init_Dll(py_trees.behaviour.Behaviour):
             arc_api.click_keyworld("esc")
             time.sleep(1.5)
             return py_trees.common.Status.RUNNING
-
+        window_hwd = arc_api.FindWindowByProcess("PioneerGame.exe")
+        arc_api.BindWindow(window_hwd)
         # 5. 检查特定位置颜色 (Near Pos?)
         near_pos = arc_api.FindColorE(685,117,758,152,"f9eedf-000000",1.0,0)
         near_pos = near_pos.split("|")
@@ -152,6 +153,6 @@ class Init_Dll(py_trees.behaviour.Behaviour):
             print("返回")
             self.click_account = 0
             arc_api.click_keyworld("esc")
-            
+        arc_api.UnBindWindow()
         self.account = 0
         return py_trees.common.Status.RUNNING
