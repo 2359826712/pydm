@@ -46,7 +46,7 @@ class Invite(py_trees.behaviour.Behaviour):
                 account = item.get("account")
                 if account:
                     names.append(account)
-        time.sleep(0.5)
+        time.sleep(0.1)
         self.count = 0
         for account in names:
             if '#' in account:
