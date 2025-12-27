@@ -60,7 +60,7 @@ class Init_Dll(py_trees.behaviour.Behaviour):
         init_thread = Thread(target=game_manager.init_game_data)
         init_thread.daemon = True
         init_thread.start()
-        time.sleep(1)
+        time.sleep(2)
 
     def _handle_steam_glob_click(self, x1, y1, x2, y2, click_x, click_y_steam, click_y_glob):
         """处理 Steam/Global 图标识别并点击"""
@@ -105,43 +105,43 @@ class Init_Dll(py_trees.behaviour.Behaviour):
             arc_api.mouse_click(722,136,0)
             return py_trees.common.Status.RUNNING
 
-         # 6. 主要逻辑：点击并检查加号位置
-        time.sleep(1.5)
-        arc_api.mouse_click(830,236,1)
-        time.sleep(1.5)
         
-        # 检查位置 1
-        add_pos = arc_api.FindColorE(830,236,1038,446,"37373f-000000",1.0,0)
-        add_pos = add_pos.split("|") 
-        if int(add_pos[1]) > 0 : 
-            self._async_init_data()
-            self._handle_steam_glob_click(837, 277, 860, 300, 910, 320, 288)
-            self.blackboard.init_dll = True
-        else:
-            # 没找到位置 1，尝试位置 2
-            time.sleep(1.5)
-            arc_api.mouse_click(1275,236,1)
-        
-        time.sleep(1.5)
-        arc_api.mouse_click(1275,236,1)
-        time.sleep(1.5)
-        
-        # 检查位置 2
-        add_pos = arc_api.FindColorE(1275,236,1486,457,"37373f-000000",1.0,0)
-        add_pos = add_pos.split("|") 
-        if int(add_pos[1]) > 0 : 
-            self._async_init_data()
-            self._handle_steam_glob_click(1283, 278, 1305, 299, 1355, 320, 290)
-            self.blackboard.init_dll = True
-        else:
-            time.sleep(1.5)
-            arc_api.mouse_click(830,236,1)
-            
-        time.sleep(1.5)
         
         # 滚轮操作
         while self.account != 3:
-            arc_api.WheelDown()
+             # 6. 主要逻辑：点击并检查加号位置
+            time.sleep(1.5)
+            arc_api.mouse_click(830,236,1)
+            time.sleep(1.5)
+            
+            # 检查位置 1
+            add_pos = arc_api.FindColorE(830,236,1038,446,"37373f-000000",1.0,0)
+            add_pos = add_pos.split("|") 
+            if int(add_pos[1]) > 0 : 
+                self._async_init_data()
+                self._handle_steam_glob_click(837, 277, 860, 300, 910, 320, 288)
+                self.blackboard.init_dll = True
+            else:
+                # 没找到位置 1，尝试位置 2
+                time.sleep(1.5)
+                arc_api.mouse_click(1275,236,1)
+            
+            time.sleep(1.5)
+            arc_api.mouse_click(1275,236,1)
+            time.sleep(1.5)
+            
+            # 检查位置 2
+            add_pos = arc_api.FindColorE(1275,236,1486,457,"37373f-000000",1.0,0)
+            add_pos = add_pos.split("|") 
+            if int(add_pos[1]) > 0 : 
+                self._async_init_data()
+                self._handle_steam_glob_click(1283, 278, 1305, 299, 1355, 320, 290)
+                self.blackboard.init_dll = True
+            else:
+                time.sleep(1.5)
+                arc_api.mouse_click(830,236,1)
+                
+            time.sleep(1.5)
             self.account += 1
             time.sleep(0.5)
             
