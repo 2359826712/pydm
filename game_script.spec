@@ -2,11 +2,11 @@
 
 
 a = Analysis(
-    ['dist\\main.py'],
+    ['loader.py'],
     pathex=['dist', 'dist/arcapi'],
     binaries=[],
     datas=[],
-    hiddenimports=[],
+    hiddenimports=['win32com', 'win32com.client', 'pythoncom', 'py_trees', 'arcapi', 'keyboard'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
