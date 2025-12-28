@@ -143,6 +143,12 @@ class HttpFriendManager:
                     else:
                         logger.error("重试后仍然收到 409 冲突，放弃")
                         return False
+                elif response.status == 400:
+                    logger.warning(f"好友请求失败: 被拉黑 (HTTP 400) - ID: {target_tenancy_user_id}")
+                    return False
+                elif response.status == 404:
+                    logger.warning(f"好友请求失败: 未知 (HTTP 404) - ID: {target_tenancy_user_id}")
+                    return False
                 else:
                     text = await response.text()
                     logger.error(f"好友请求发送失败: HTTP {response.status} - {text}")
