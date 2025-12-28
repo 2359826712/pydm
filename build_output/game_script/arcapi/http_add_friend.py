@@ -1,7 +1,14 @@
 import aiohttp
 import asyncio
 import logging
+import os
+import sys
 from typing import Optional, Dict, Any
+
+# 添加上一级目录以导入 api_client
+script_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(script_dir)
+from api_client import ApiClient
 
 # 配置日志
 logging.basicConfig(
@@ -106,6 +113,7 @@ class HttpFriendManager:
 async def add_friend_by_http_async(name_with_tag: str, auth_token: str) -> bool:
     """
     通过 HTTP 接口添加好友的完整流程 (Async)
+    如果成功获取ID并发送请求，会调用 client.insert_data 上报数据
     :param name_with_tag: 用户名#Tag (e.g., "Player#1234")
     :param auth_token: 认证 Token
     :return: 是否成功发送请求
@@ -123,9 +131,31 @@ async def add_friend_by_http_async(name_with_tag: str, auth_token: str) -> bool:
         user_id = await manager.get_user_id_by_displayname(session, name, discriminator)
         if not user_id:
             return False
-            
+        
+        # 插入数据到数据库 (User request: insert_data("arc_game", name_with_tag, str(user_id), "1", 50))
+        try:
+            client = ApiClient()
+            # user_id is int, convert to str for database
+            client.insert_data("arc_game", name_with_tag, str(user_id), "1", 50)
+            logger.info(f"已上报好友数据: {name_with_tag}, ID: {user_id}")
+        except Exception as e:
+            logger.error(f"上报好友数据失败: {e}")
+
         # 2. 发送好友请求
         return await manager.request_friendship(session, user_id)
+
+async def add_friend_by_id_async(user_id: str, auth_token: str) -> bool:
+    """
+    通过 HTTP 接口添加好友的完整流程 (Async)
+    直接使用 ID 发送请求
+    :param user_id: 目标用户ID (str or int)
+    :param auth_token: 认证 Token
+    :return: 是否成功发送请求
+    """
+    manager = HttpFriendManager(auth_token)
+    
+    async with aiohttp.ClientSession() as session:
+        return await manager.request_friendship(session, int(user_id))
 
 # 兼容同步调用 (但不建议在高性能场景使用，每次都会创建 loop)
 def add_friend_by_http(name_with_tag: str, auth_token: str) -> bool:

@@ -1,5 +1,7 @@
 import ctypes
 import os
+import threading
+import time
 import sys
 import threading
 import multiprocessing
@@ -124,7 +126,6 @@ class ArcGameManager:
             os.path.join("x64", "Release", "arc.dll"),
             # 脚本所在目录的子目录
             os.path.join(os.path.dirname(os.path.abspath(__file__)), "arc.dll"),
-            os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "arc.dll"), # Added parent directory search
             os.path.join(os.path.dirname(os.path.abspath(__file__)), "x64", "Debug", "arc.dll"),
             os.path.join(os.path.dirname(os.path.abspath(__file__)), "x64", "Release", "arc.dll"),
             # 你提供的示例路径
@@ -254,6 +255,14 @@ class ArcGameManager:
         except AttributeError:
             logger.warning("DLL 中未找到 GameCore_LoadDriver 函数")
 
+        # 7. GameCore_GetJWTToken: bool __stdcall GameCore_GetJWTToken(char* outToken, int maxLen)
+        try:
+            self.dll.GameCore_GetJWTToken.argtypes = [ctypes.c_char_p, ctypes.c_int]
+            self.dll.GameCore_GetJWTToken.restype = ctypes.c_bool
+            logger.info("设置 GameCore_GetJWTToken 函数签名成功")
+        except AttributeError:
+            logger.warning("DLL 中未找到 GameCore_GetJWTToken 函数")
+
     def get_friend_list(self) -> List[Dict[str, any]]:
         """
         核心接口：调用 GameCore_TraverseFriendList 获取好友列表
@@ -368,6 +377,34 @@ class ArcGameManager:
         except Exception as e:
             logger.error(f"清理游戏数据异常: {e}")
 
+    def get_jwt_token(self) -> Optional[str]:
+        """
+        获取 JWT Token
+        :return: JWT Token 字符串，如果失败返回 None
+        """
+        if not self._is_loaded:
+            raise RuntimeError("DLL 未加载，无法获取 JWT Token")
+
+        # 准备缓冲区 (假设最大长度为 4096)
+        max_len = 4096
+        out_token = ctypes.create_string_buffer(max_len)
+
+        try:
+            logger.info("开始调用 GameCore_GetJWTToken...")
+            # 调用 C++ 函数
+            ret = self.dll.GameCore_GetJWTToken(out_token, max_len)
+            
+            if ret:
+                token_str = out_token.value.decode('utf-8')
+                logger.info(f"成功获取 JWT Token (长度: {len(token_str)})")
+                return token_str
+            else:
+                logger.error("GameCore_GetJWTToken 返回失败")
+                return None
+        except Exception as e:
+            logger.error(f"调用 GameCore_GetJWTToken 发生异常: {e}")
+            return None
+
     def load_driver(self) -> bool:
         """
         调用 GameCore_LoadDriver 加载驱动
@@ -440,14 +477,8 @@ if __name__ == "__main__":
     # 方式2：上下文管理器（推荐，自动管理资源）
     try:
         with ArcGameManagerContext() as gm:
-            gm.init_game_data()
-            friend_list = gm.get_friend_list()
-            print(f"\n===== 好友列表（共 {len(friend_list)} 个） =====")
-            for idx, friend in enumerate(friend_list):
-                print(f"[{idx+1}] ID: {friend['id']} | 名称: {friend['name']} | 唯一标识: {friend['unique_id']}")
-
+            gm.get_jwt_token()
             #死循环 每一秒打印打印当前时间
-            import time
             while True:
                 print(f"当前时间: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}")
                 time.sleep(1)

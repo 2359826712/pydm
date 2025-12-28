@@ -22,7 +22,7 @@ import multiprocessing
 import random
 import asyncio
 from multiprocessing import Process, Queue, Manager, Lock
-from http_add_friend import add_friend_by_http, add_friend_by_http_async # Use the correct function
+from http_add_friend import add_friend_by_http, add_friend_by_http_async, add_friend_by_id_async # Use the correct function
 
 import logging
 # 配置日志记录器
@@ -47,29 +47,40 @@ def worker(token):
                 # 1. 查询数据 (ApiClient 目前是同步的，保留同步调用)
                 status_code, response = local_client.query_data("arc_game", 86400, 1, 10)
                 
-                names = []
+                friend_items = []
                 if status_code == 200:
                     data = response.get("data", [])
                     if isinstance(data, list):
                         for item in data:
                             account = item.get("account")
                             if account:
-                                names.append(account)
+                                # 保存完整 item 以便检查 b_zone
+                                friend_items.append(item)
                 
-                if not names:
+                if not friend_items:
                     # 如果没查到数据，休眠一会再试
                     await asyncio.sleep(5)
+                    local_client.clear_talk_channel("arc_game",1)
                     continue
                     
                 # 2. 异步并发处理查询到的好友
                 tasks = []
-                for account in names:
+                for item in friend_items:
+                    account = item.get("account")
+                    b_zone = item.get("b_zone")
+                    
                     # 增加微小随机延时，避免瞬间并发过高
                     await asyncio.sleep(random.uniform(0.1, 0.3))
                     
-                    print(f"Token [...{token[-6:]}] 正在向好友 {account} 发送请求...")
-                    # 创建异步任务
-                    task = asyncio.create_task(add_friend_by_http_async(account, token))
+                    print(f"Token [...{token[-6:]}] 正在向好友 {account} 发送请求 (b_zone={b_zone})...")
+                    
+                    if b_zone and b_zone != "1":
+                        # 如果 b_zone 存在且不为 "1"，直接使用 b_zone 作为 user_id 调用 add_friend_by_id_async
+                        task = asyncio.create_task(add_friend_by_id_async(str(b_zone), token))
+                    else:
+                        # 否则调用常规的 add_friend_by_http_async (内部会自动上报数据)
+                        task = asyncio.create_task(add_friend_by_http_async(account, token))
+                        
                     tasks.append(task)
                     local_count += 1
 

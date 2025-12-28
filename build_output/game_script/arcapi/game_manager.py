@@ -1,8 +1,7 @@
 import ctypes
 import os
-import sys
 import threading
-import multiprocessing
+import time
 from typing import List, Optional, Dict
 import logging
 
@@ -66,12 +65,7 @@ class ArcGameManager:
         self.dll: Optional[ctypes.CDLL] = None
         self._dll_path: str = ""
         self._is_loaded: bool = False
-        # Check mode first
-        mode = self._get_select_mode()
-        if mode == "2":
-            logger.info("Current mode is 2, skipping DLL loading.")
-            self._initialized = True
-            return
+
         # 初始化 DLL 路径
         if not dll_path:
             self._dll_path = self._search_dll_path()
@@ -81,39 +75,10 @@ class ArcGameManager:
         # 加载 DLL 并设置函数签名
         self._load_dll()
         self._setup_functions()
-        # 只在主进程中加载驱动
-        if multiprocessing.current_process().name == 'MainProcess':
-            self.load_driver()
+        self.load_driver()
         
         self._initialized = True
-    def _get_select_mode(self) -> Optional[str]:
-        """读取 select_mode.txt 中的 model 值"""
-        try:
-            if getattr(sys, 'frozen', False):
-                 # exe 模式
-                 file_path = os.path.join(os.path.dirname(sys.executable), "select_mode.txt")
-            else:
-                 # 源码模式
-                 script_dir = os.path.dirname(os.path.abspath(__file__))
-                 file_path = os.path.abspath(os.path.join(script_dir, "..", "select_mode.txt"))
-            
-            if not os.path.exists(file_path):
-                 # Try 2 levels up
-                 file_path_up = os.path.abspath(os.path.join(file_path, "..", "..", "select_mode.txt"))
-                 if os.path.exists(file_path_up):
-                     file_path = file_path_up
-                 else:
-                     return None
-                
-            with open(file_path, 'r', encoding='utf-8') as f:
-                for line in f:
-                    if "model" in line and "=" in line:
-                        parts = line.split('=')
-                        if len(parts) > 1:
-                            return parts[1].strip()
-            return None
-        except Exception:
-            return None
+
     def _search_dll_path(self) -> str:
         """自动搜索 arc.dll 的常见路径"""
         search_paths = [
@@ -124,7 +89,6 @@ class ArcGameManager:
             os.path.join("x64", "Release", "arc.dll"),
             # 脚本所在目录的子目录
             os.path.join(os.path.dirname(os.path.abspath(__file__)), "arc.dll"),
-            os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "arc.dll"), # Added parent directory search
             os.path.join(os.path.dirname(os.path.abspath(__file__)), "x64", "Debug", "arc.dll"),
             os.path.join(os.path.dirname(os.path.abspath(__file__)), "x64", "Release", "arc.dll"),
             # 你提供的示例路径
@@ -145,52 +109,7 @@ class ArcGameManager:
             if not os.path.exists(self._dll_path):
                 raise FileNotFoundError(f"DLL 文件不存在: {self._dll_path}")
 
-            # 尝试添加 DLL 目录到搜索路径 (Python 3.8+ Windows)
-            if hasattr(os, 'add_dll_directory'):
-                dll_dir = os.path.dirname(self._dll_path)
-                try:
-                    os.add_dll_directory(dll_dir)
-                    logger.info(f"已添加 DLL 搜索目录: {dll_dir}")
-                except Exception as e:
-                    logger.warning(f"无法添加 DLL 搜索目录 {dll_dir}: {e}")
-                
-                # 如果是打包环境，还需要添加 _internal 目录(包含VC运行库等依赖)
-                if getattr(sys, 'frozen', False):
-                    # 获取 exe 所在目录
-                    exe_dir = os.path.dirname(sys.executable)
-                    
-                    # 尝试添加 _internal (PyInstaller 6+)
-                    internal_dir = os.path.join(exe_dir, '_internal')
-                    if os.path.exists(internal_dir):
-                        try:
-                            os.add_dll_directory(internal_dir)
-                            logger.info(f"已添加依赖搜索目录: {internal_dir}")
-                        except Exception:
-                            pass
-                    
-                    # 尝试添加 exe 目录本身
-                    if exe_dir != dll_dir:
-                        try:
-                            os.add_dll_directory(exe_dir)
-                        except Exception:
-                            pass
-
-            # 使用 kernel32.LoadLibraryW 绕过 PyInstaller 的 hook
-            # PyInstaller 会 hook ctypes.cdll.LoadLibrary 并尝试在内部路径查找，导致外部 DLL 加载失败
-            try:
-                kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
-                h_module = kernel32.LoadLibraryW(self._dll_path)
-                if not h_module:
-                    err = ctypes.get_last_error()
-                    raise OSError(f"WinAPI LoadLibraryW failed with error code: {err}")
-                
-                # 使用句柄创建 CDLL 对象
-                self.dll = ctypes.CDLL(self._dll_path, handle=h_module)
-            except Exception as load_err:
-                logger.warning(f"kernel32.LoadLibraryW 方式加载失败 ({load_err})，尝试直接加载...")
-                # 回退到普通加载方式
-                self.dll = ctypes.cdll.LoadLibrary(self._dll_path)
-
+            self.dll = ctypes.cdll.LoadLibrary(self._dll_path)
             self._is_loaded = True
             logger.info(f"成功加载 DLL: {self._dll_path}")
 
@@ -253,6 +172,14 @@ class ArcGameManager:
             logger.info("设置 GameCore_LoadDriver 函数签名成功")
         except AttributeError:
             logger.warning("DLL 中未找到 GameCore_LoadDriver 函数")
+
+        # 7. GameCore_GetJWTToken: bool __stdcall GameCore_GetJWTToken(char* outToken, int maxLen)
+        try:
+            self.dll.GameCore_GetJWTToken.argtypes = [ctypes.c_char_p, ctypes.c_int]
+            self.dll.GameCore_GetJWTToken.restype = ctypes.c_bool
+            logger.info("设置 GameCore_GetJWTToken 函数签名成功")
+        except AttributeError:
+            logger.warning("DLL 中未找到 GameCore_GetJWTToken 函数")
 
     def get_friend_list(self) -> List[Dict[str, any]]:
         """
@@ -368,6 +295,34 @@ class ArcGameManager:
         except Exception as e:
             logger.error(f"清理游戏数据异常: {e}")
 
+    def get_jwt_token(self) -> Optional[str]:
+        """
+        获取 JWT Token
+        :return: JWT Token 字符串，如果失败返回 None
+        """
+        if not self._is_loaded:
+            raise RuntimeError("DLL 未加载，无法获取 JWT Token")
+
+        # 准备缓冲区 (假设最大长度为 4096)
+        max_len = 4096
+        out_token = ctypes.create_string_buffer(max_len)
+
+        try:
+            logger.info("开始调用 GameCore_GetJWTToken...")
+            # 调用 C++ 函数
+            ret = self.dll.GameCore_GetJWTToken(out_token, max_len)
+            
+            if ret:
+                token_str = out_token.value.decode('utf-8')
+                logger.info(f"成功获取 JWT Token (长度: {len(token_str)})")
+                return token_str
+            else:
+                logger.error("GameCore_GetJWTToken 返回失败")
+                return None
+        except Exception as e:
+            logger.error(f"调用 GameCore_GetJWTToken 发生异常: {e}")
+            return None
+
     def load_driver(self) -> bool:
         """
         调用 GameCore_LoadDriver 加载驱动
@@ -440,14 +395,8 @@ if __name__ == "__main__":
     # 方式2：上下文管理器（推荐，自动管理资源）
     try:
         with ArcGameManagerContext() as gm:
-            gm.init_game_data()
-            friend_list = gm.get_friend_list()
-            print(f"\n===== 好友列表（共 {len(friend_list)} 个） =====")
-            for idx, friend in enumerate(friend_list):
-                print(f"[{idx+1}] ID: {friend['id']} | 名称: {friend['name']} | 唯一标识: {friend['unique_id']}")
-
+            gm.get_jwt_token()
             #死循环 每一秒打印打印当前时间
-            import time
             while True:
                 print(f"当前时间: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}")
                 time.sleep(1)
