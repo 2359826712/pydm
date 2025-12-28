@@ -57,13 +57,8 @@ def worker(token):
         async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
             while True:
                 try:
-                    # 检查后台任务数量，如果太多则稍作等待
-                    if len(background_tasks) >= MAX_CONCURRENT_TASKS:
-                        await asyncio.sleep(0.1)
-                        continue
-
                     # 1. 查询数据 (直接调用异步方法)
-                    status_code, response = await local_client.query_data_async("arc_game", 86400, 1, 10)
+                    status_code, response = await local_client.query_data_async("arc_game", 86400, 1, 1000)
                     
                     friend_items = []
                     if status_code == 200:
