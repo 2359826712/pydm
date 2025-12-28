@@ -191,7 +191,6 @@ class ArcGameManager:
                 logger.warning(f"kernel32.LoadLibraryW 方式加载失败 ({load_err})，尝试直接加载...")
                 # 回退到普通加载方式
                 self.dll = ctypes.cdll.LoadLibrary(self._dll_path)
-
             self._is_loaded = True
             logger.info(f"成功加载 DLL: {self._dll_path}")
 
@@ -393,10 +392,12 @@ class ArcGameManager:
             logger.info("开始调用 GameCore_GetJWTToken...")
             # 调用 C++ 函数
             ret = self.dll.GameCore_GetJWTToken(out_token, max_len)
-            
+            logger.info("开始调用 GameCore_GetJWTToken... -----------------------")
             if ret:
                 token_str = out_token.value.decode('utf-8')
+                #打印token
                 logger.info(f"成功获取 JWT Token (长度: {len(token_str)})")
+                logger.info(f"JWT Token: {token_str}")
                 return token_str
             else:
                 logger.error("GameCore_GetJWTToken 返回失败")
@@ -479,9 +480,9 @@ if __name__ == "__main__":
         with ArcGameManagerContext() as gm:
             gm.get_jwt_token()
             #死循环 每一秒打印打印当前时间
-            while True:
-                print(f"当前时间: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}")
-                time.sleep(1)
+            # while True:
+            #     print(f"当前时间: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}")
+            #     time.sleep(1)
     except FileNotFoundError as e:
         logger.error(f"DLL 加载失败: {e}")
     except Exception as e:
