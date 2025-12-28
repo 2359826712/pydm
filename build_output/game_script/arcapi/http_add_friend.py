@@ -136,7 +136,7 @@ async def add_friend_by_http_async(name_with_tag: str, auth_token: str) -> bool:
         try:
             client = ApiClient()
             # user_id is int, convert to str for database
-            client.insert_data("arc_game", name_with_tag, str(user_id), "1", 50)
+            client.update_data("arc_game", name_with_tag, str(user_id), "1", 50)
             logger.info(f"已上报好友数据: {name_with_tag}, ID: {user_id}")
         except Exception as e:
             logger.error(f"上报好友数据失败: {e}")

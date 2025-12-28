@@ -62,3 +62,13 @@ class ApiClient:
     def clear_talk_channel(self, game_name: str, talk_channel: int) -> tuple[int, dict]:
         data = {"game_name": game_name, "talk_channel": talk_channel}
         return self.send_post_request("/clearTalkChannel", data)
+
+    def update_data(self, game_name: str, account: str, b_zone: str, s_zone: str, rating: int) -> tuple[int, dict]:
+        data = {
+            "game_name": game_name,
+            "account": account,
+            "b_zone": b_zone,
+            "s_zone": s_zone or "1",
+            "rating": rating or 50,
+        }
+        return self.send_post_request("/update", data)
