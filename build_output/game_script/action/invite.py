@@ -95,7 +95,7 @@ def worker(token):
                         task.add_done_callback(background_tasks.discard)
                         
                         # 降低循环速度减少请求超时，每次添加好友间隔 0.2 秒
-                        await asyncio.sleep(0.1)
+                        await asyncio.sleep(0.2)
                         
                         local_count += 1
 
