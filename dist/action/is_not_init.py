@@ -29,7 +29,7 @@ class Is_Not_Init(py_trees.behaviour.Behaviour):
         self.blackboard.register_key(key="init_dll", access=py_trees.common.Access.READ)#READ
         self.time = 0
     def update(self) -> py_trees.common.Status:
-        if not self.blackboard.init_dll:
+        if not self.blackboard.init_dll and arc_api.select_mode() !="2":
             print("正在初始化dll")
             return py_trees.common.Status.SUCCESS
         else:

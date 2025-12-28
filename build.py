@@ -28,6 +28,8 @@ def build():
         '--hidden-import=win32gui',
         '--hidden-import=win32process',
         '--hidden-import=pythoncom',
+        '--hidden-import=requests',
+        '--hidden-import=concurrent.futures',
     ]
     
     print("Running PyInstaller...")

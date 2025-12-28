@@ -118,9 +118,7 @@ class Start_Game(py_trees.behaviour.Behaviour):
         if not self.blackboard.init_dll:
             print("初始化dll")
             return py_trees.common.Status.FAILURE
-        if arc_api.select_mode() =="2" :
-            print("发送好友申请")
-            return py_trees.common.Status.FAILURE
+        
         
         friend_pos = arc_api.FindPic(0,0,1413,181,"friend.bmp","000000",1.0,0)
         if int(friend_pos[1]) > 0 :

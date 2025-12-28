@@ -252,3 +252,37 @@ class Arc_api:
         except Exception as e:
             print(f"读取配置文件失败: {e}")
             return None
+
+    def get_tokens(self):
+        """读取 select_mode.txt 中的 token 值"""
+        try:
+            if getattr(sys, 'frozen', False):
+                 # exe 模式
+                 file_path = os.path.join(os.path.dirname(sys.executable), "select_mode.txt")
+            else:
+                 # 源码模式
+                 script_dir = os.path.dirname(os.path.abspath(__file__))
+                 file_path = os.path.abspath(os.path.join(script_dir, "..", "select_mode.txt"))
+            
+            if not os.path.exists(file_path):
+                print(f"配置文件不存在: {file_path}")
+                return []
+                
+            tokens = []
+            with open(file_path, 'r', encoding='utf-8') as f:
+                for line in f:
+                    if "token" in line and "=" in line:
+                        parts = line.split('=', 1)
+                        if len(parts) > 1:
+                            raw_token = parts[1].strip()
+                            # 处理可能的分隔符和清理字符
+                            raw_tokens = raw_token.split('|')
+                            for t in raw_tokens:
+                                # 清理多余的标点符号 (JSON格式残留)
+                                clean_t = t.strip().strip('{}').strip().strip('"\'').strip()
+                                if clean_t:
+                                    tokens.append(clean_t)
+            return tokens
+        except Exception as e:
+            print(f"读取Token失败: {e}")
+            return []

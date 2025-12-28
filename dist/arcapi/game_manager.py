@@ -1,5 +1,6 @@
 import ctypes
 import os
+import sys
 import threading
 from typing import List, Optional, Dict
 import logging
@@ -109,7 +110,52 @@ class ArcGameManager:
             if not os.path.exists(self._dll_path):
                 raise FileNotFoundError(f"DLL 文件不存在: {self._dll_path}")
 
-            self.dll = ctypes.cdll.LoadLibrary(self._dll_path)
+            # 尝试添加 DLL 目录到搜索路径 (Python 3.8+ Windows)
+            if hasattr(os, 'add_dll_directory'):
+                dll_dir = os.path.dirname(self._dll_path)
+                try:
+                    os.add_dll_directory(dll_dir)
+                    logger.info(f"已添加 DLL 搜索目录: {dll_dir}")
+                except Exception as e:
+                    logger.warning(f"无法添加 DLL 搜索目录 {dll_dir}: {e}")
+                
+                # 如果是打包环境，还需要添加 _internal 目录(包含VC运行库等依赖)
+                if getattr(sys, 'frozen', False):
+                    # 获取 exe 所在目录
+                    exe_dir = os.path.dirname(sys.executable)
+                    
+                    # 尝试添加 _internal (PyInstaller 6+)
+                    internal_dir = os.path.join(exe_dir, '_internal')
+                    if os.path.exists(internal_dir):
+                        try:
+                            os.add_dll_directory(internal_dir)
+                            logger.info(f"已添加依赖搜索目录: {internal_dir}")
+                        except Exception:
+                            pass
+                    
+                    # 尝试添加 exe 目录本身
+                    if exe_dir != dll_dir:
+                        try:
+                            os.add_dll_directory(exe_dir)
+                        except Exception:
+                            pass
+
+            # 使用 kernel32.LoadLibraryW 绕过 PyInstaller 的 hook
+            # PyInstaller 会 hook ctypes.cdll.LoadLibrary 并尝试在内部路径查找，导致外部 DLL 加载失败
+            try:
+                kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
+                h_module = kernel32.LoadLibraryW(self._dll_path)
+                if not h_module:
+                    err = ctypes.get_last_error()
+                    raise OSError(f"WinAPI LoadLibraryW failed with error code: {err}")
+                
+                # 使用句柄创建 CDLL 对象
+                self.dll = ctypes.CDLL(self._dll_path, handle=h_module)
+            except Exception as load_err:
+                logger.warning(f"kernel32.LoadLibraryW 方式加载失败 ({load_err})，尝试直接加载...")
+                # 回退到普通加载方式
+                self.dll = ctypes.cdll.LoadLibrary(self._dll_path)
+
             self._is_loaded = True
             logger.info(f"成功加载 DLL: {self._dll_path}")
 

@@ -10,7 +10,7 @@ def main_tree():
     init_dll = py_trees.composites.Sequence(name="初始化dll", memory=False)
     init_dll.add_children([action.Is_Not_Init(),action.Init_Dll()])
     start_game = py_trees.composites.Selector(name="启动游戏", memory=False)
-    start_game.add_children([action.Start_Game(),init_dll,action.Invite(),action.Collect()])
+    start_game.add_children([action.Start_Game(),init_dll,action.Collect()])
     exit_game = py_trees.composites.Selector(name="退出游戏", memory=False)
     exit_game.add_children([action.Exit_Game()])
     # 创建并行根节点
@@ -22,6 +22,7 @@ def main_tree():
     # 主业务流程
     main_flow = py_trees.composites.Sequence(name="核心流程", memory=False)
     main_flow.add_children([
+        action.Invite(),
         action.Set_Game_Window(), # 设置游戏窗口
         start_game,
         exit_game,

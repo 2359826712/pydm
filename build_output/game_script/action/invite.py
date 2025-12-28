@@ -1,25 +1,57 @@
 
-from re import A
+from http.client import responses
 import sys
 import os
+import token
 script_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(script_dir))  # 添加上一级目录
 from threading import local
 import time 
 import py_trees
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from arcapi import Arc_api, dm
 from api_client import ApiClient
 from game_manager import ArcGameManager
+# from http_friend_manager import HttpFriendManager # Removed incorrect import
+from http_add_friend import add_friend_by_http # Use the correct function
+
 arc_api = Arc_api()
 client = ApiClient()
 game_manager = ArcGameManager()
 
+import queue
+import threading
+from concurrent.futures import ThreadPoolExecutor, wait
+
+# ... (imports)
+
+# Removed static tokens definition
+# tokens = [ ... ]
 
 import logging
 # 配置日志记录器
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger("节点")
+
+def worker(token, task_queue):
+    """
+    工作线程函数：持续从队列获取账号并发送请求
+    """
+    while True:
+        try:
+            # 非阻塞获取，如果队列空了就退出
+            account = task_queue.get_nowait()
+        except queue.Empty:
+            break
+            
+        try:
+            # print(f"Token [...{token[-6:]}] 正在处理账号: {account}")
+            add_friend_by_http(account, token)
+        except Exception as e:
+            print(f"Token 处理异常: {e}")
+        finally:
+            task_queue.task_done()
 
 class Invite(py_trees.behaviour.Behaviour):
 
@@ -31,10 +63,19 @@ class Invite(py_trees.behaviour.Behaviour):
         self.time = 0
         self.create_number = 0
         self.count = 0
+        
     def update(self) -> py_trees.common.Status:
         if arc_api.select_mode() !="2" :
             print("收集id")
             return py_trees.common.Status.FAILURE
+            
+        # 每次 update 都重新读取 Token，支持运行时修改配置文件
+        tokens = arc_api.get_tokens()
+        if not tokens:
+            print("未找到有效 Token，请检查 select_mode.txt")
+            time.sleep(5)
+            return py_trees.common.Status.RUNNING
+
         status_code, response = client.query_data("arc_game", 86400, 1, 10)
         if status_code != 200:
             print("查询游戏数据失败")
@@ -46,23 +87,29 @@ class Invite(py_trees.behaviour.Behaviour):
                 account = item.get("account")
                 if account:
                     names.append(account)
-        time.sleep(0.1)
         self.count = 0
-        for account in names:
-            if '#' in account:
-                parts = account.split('#')
-                if len(parts) >= 2:
-                    name = parts[0] 
-                    friend_id = parts[1]
-                    game_manager.add_friend(name, friend_id)
-                    time.sleep(0.1)
-                    
-                    # 计数器递增
-                    self.count += 1
-                    # 每1000次插入一次固定好友
-                    if self.count % 100 == 0:
-                        print("已添加1000次，插入固定好友: MMOELD.COM_items#8311")
-                        game_manager.add_friend("MMOEXPsellitem18", "0342")
-                        time.sleep(0.2)
+        
+        if not names:
+            return py_trees.common.Status.RUNNING
+
+        print(f"开始处理 {len(names)} 个好友请求，使用 {len(tokens)} 个 Token 并发处理...")
+        
+        # 使用队列管理任务
+        task_queue = queue.Queue()
+        for name in names:
+            task_queue.put(name)
+            
+        # 为每个 Token 启动一个线程 (模拟子进程行为)
+        threads = []
+        for token in tokens:
+            t = threading.Thread(target=worker, args=(token, task_queue))
+            t.daemon = True
+            t.start()
+            threads.append(t)
+            
+        # 等待所有线程完成
+        for t in threads:
+            t.join()
+
         names.clear()
         return py_trees.common.Status.RUNNING
