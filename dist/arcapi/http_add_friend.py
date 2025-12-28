@@ -110,11 +110,12 @@ class HttpFriendManager:
             logger.error(f"删除好友时发生异常: {e}")
             return False
 
-    async def request_friendship(self, session: aiohttp.ClientSession, target_tenancy_user_id: int) -> bool:
+    async def request_friendship(self, session: aiohttp.ClientSession, target_tenancy_user_id: int, retry: bool = True) -> bool:
         """
         发送好友请求
         :param session: aiohttp session
         :param target_tenancy_user_id: 目标用户的 tenancyUserId
+        :param retry: 是否在 409 冲突时尝试删除并重试
         :return: 是否成功
         """
         url = f"{self.BASE_URL}/shared/social/friends/request-friendship"
@@ -129,9 +130,19 @@ class HttpFriendManager:
                     logger.info("好友请求发送成功")
                     return True
                 elif response.status == 409:
-                    logger.warning(f"好友请求冲突 (HTTP 409)，尝试删除好友: {target_tenancy_user_id}")
-                    # 如果返回 409，尝试删除好友
-                    return await self.delete_friendship(session, target_tenancy_user_id)
+                    if retry:
+                        logger.warning(f"好友请求冲突 (HTTP 409)，尝试删除好友并重试: {target_tenancy_user_id}")
+                        # 如果返回 409，尝试删除好友
+                        if await self.delete_friendship(session, target_tenancy_user_id):
+                            logger.info(f"删除好友成功，正在重新发送请求: {target_tenancy_user_id}")
+                            # 递归调用，设置 retry=False 防止死循环
+                            return await self.request_friendship(session, target_tenancy_user_id, retry=False)
+                        else:
+                            logger.error("删除好友失败，无法继续重试")
+                            return False
+                    else:
+                        logger.error("重试后仍然收到 409 冲突，放弃")
+                        return False
                 else:
                     text = await response.text()
                     logger.error(f"好友请求发送失败: HTTP {response.status} - {text}")
