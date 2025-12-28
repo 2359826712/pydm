@@ -60,7 +60,7 @@ class HttpFriendManager:
         
         try:
             logger.info(f"正在查询用户: {name}#{discriminator}")
-            async with session.post(url, json=payload, headers=self.headers, timeout=5) as response:
+            async with session.post(url, json=payload, headers=self.headers, timeout=10) as response:
                 # 检查响应状态码
                 if response.status != 200:
                     text = await response.text()
@@ -79,7 +79,7 @@ class HttpFriendManager:
                     return None
                 
         except Exception as e:
-            logger.error(f"查询用户时发生异常: {e}")
+            logger.error(f"查询用户时发生异常 ({name}#{discriminator}): {e}")
             return None
 
     async def delete_friendship(self, session: aiohttp.ClientSession, target_tenancy_user_id: int) -> bool:
@@ -143,6 +143,12 @@ class HttpFriendManager:
                     else:
                         logger.error("重试后仍然收到 409 冲突，放弃")
                         return False
+                elif response.status == 400:
+                    logger.warning(f"好友请求失败: 被拉黑 (HTTP 400) - ID: {target_tenancy_user_id}")
+                    return False
+                elif response.status == 404:
+                    logger.warning(f"好友请求失败: 未知 (HTTP 404) - ID: {target_tenancy_user_id}")
+                    return False
                 else:
                     text = await response.text()
                     logger.error(f"好友请求发送失败: HTTP {response.status} - {text}")
