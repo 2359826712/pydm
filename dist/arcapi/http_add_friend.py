@@ -134,7 +134,7 @@ class HttpFriendManager:
         
         try:
             logger.info(f"正在发送好友请求给 ID: {target_tenancy_user_id}")
-            async with session.post(url, json=payload, headers=self.headers, timeout=5) as response:
+            async with session.post(url, json=payload, headers=self.headers, timeout=10) as response:
                 if response.status == 200:
                     success_count += 1
                     logger.info(f"好友请求发送成功")
@@ -166,7 +166,10 @@ class HttpFriendManager:
                     return response.status
             
         except Exception as e:
-            logger.error(f"发送好友请求时发生异常: {e}")
+            import traceback
+            error_details = traceback.format_exc()
+            # 尝试模拟 HTTP 状态码格式输出异常
+            logger.error(f"好友请求发送失败: HTTP 000 - 异常类型: {type(e).__name__}, 错误信息: {e}\n详细堆栈:\n{error_details}")
             return 0
 
 # 便捷调用函数 (Async)
@@ -223,7 +226,7 @@ async def add_friend_by_id_async(user_id: str, auth_token: str, session: Optiona
     """
     manager = HttpFriendManager(auth_token)
     global blocked_count
-    if int(user_id) == 780342417758774980 :
+    if int(user_id) == 780342417758774980:
         blocked_count = 0
     if session:
         return await manager.request_friendship(session, int(user_id))
