@@ -59,6 +59,7 @@ def worker(token):
                 if not names:
                     # 如果没查到数据，休眠一会再试
                     await asyncio.sleep(5)
+                    local_client.clear_talk_channel("arc_game",1)
                     continue
                     
                 # 2. 异步并发处理查询到的好友

@@ -75,14 +75,6 @@ class Init_Dll(py_trees.behaviour.Behaviour):
         # 2. 检查继续按钮
         if self._check_and_click_continue():
             return py_trees.common.Status.RUNNING
-        # 5. 检查特定位置颜色 (Near Pos?)
-        near_pos = arc_api.FindColorE(685,117,758,152,"f9eedf-000000",1.0,0)
-        near_pos = near_pos.split("|")
-        if int(near_pos[0]) <= 0 :
-            print("点击最近")
-            time.sleep(1.5)
-            arc_api.mouse_click(722,136,0)
-            return py_trees.common.Status.RUNNING
         self._async_init_data()
         self.blackboard.init_dll = True
         return py_trees.common.Status.RUNNING
