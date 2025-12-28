@@ -12,7 +12,6 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from arcapi import Arc_api, dm
 from api_client import ApiClient
-# from http_friend_manager import HttpFriendManager # Removed incorrect import
 from http_add_friend import add_friend_by_http # Use the correct function
 
 arc_api = Arc_api()
@@ -108,7 +107,7 @@ class Invite(py_trees.behaviour.Behaviour):
         self.time1 = time.time()
         if arc_api.select_mode() !="2" :
             print("收集id")
-            return py_trees.common.Status.FAILURE
+            return py_trees.common.Status.SUCCESS
             
         # 每次 update 都重新读取 Token，支持运行时修改配置文件
         tokens = arc_api.get_tokens()

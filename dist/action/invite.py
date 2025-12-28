@@ -106,8 +106,7 @@ class Invite(py_trees.behaviour.Behaviour):
     def update(self) -> py_trees.common.Status:
         self.time1 = time.time()
         if arc_api.select_mode() !="2" :
-            print("收集id")
-            return py_trees.common.Status.FAILURE
+            return py_trees.common.Status.SUCCESS
             
         # 每次 update 都重新读取 Token，支持运行时修改配置文件
         tokens = arc_api.get_tokens()

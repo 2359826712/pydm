@@ -66,14 +66,12 @@ class ArcGameManager:
         self.dll: Optional[ctypes.CDLL] = None
         self._dll_path: str = ""
         self._is_loaded: bool = False
-
         # Check mode first
         mode = self._get_select_mode()
         if mode == "2":
             logger.info("Current mode is 2, skipping DLL loading.")
             self._initialized = True
             return
-
         # 初始化 DLL 路径
         if not dll_path:
             self._dll_path = self._search_dll_path()
@@ -83,13 +81,11 @@ class ArcGameManager:
         # 加载 DLL 并设置函数签名
         self._load_dll()
         self._setup_functions()
-        
         # 只在主进程中加载驱动
         if multiprocessing.current_process().name == 'MainProcess':
             self.load_driver()
         
         self._initialized = True
-
     def _get_select_mode(self) -> Optional[str]:
         """读取 select_mode.txt 中的 model 值"""
         try:
@@ -118,7 +114,6 @@ class ArcGameManager:
             return None
         except Exception:
             return None
-
     def _search_dll_path(self) -> str:
         """自动搜索 arc.dll 的常见路径"""
         search_paths = [
@@ -241,17 +236,137 @@ class ArcGameManager:
             self.dll.GameCore_InitGameData.restype = None
             logger.info("设置 GameCore_InitGameData 函数签名成功")
         except AttributeError:
-            logger.error("DLL 中未找到 GameCore_InitGameData 函数")
-            raise
-            
-        # 5. GameCore_LoadDriver: bool __stdcall GameCore_LoadDriver()
+            logger.warning("DLL 中未找到 GameCore_InitGameData 函数 (如果是旧版 DLL 可忽略)")
+
+        # 5. GameCore_CleanupGameData: void __stdcall GameCore_CleanupGameData()
+        try:
+            self.dll.GameCore_CleanupGameData.argtypes = []
+            self.dll.GameCore_CleanupGameData.restype = None
+            logger.info("设置 GameCore_CleanupGameData 函数签名成功")
+        except AttributeError:
+            logger.warning("DLL 中未找到 GameCore_CleanupGameData 函数 (如果是旧版 DLL 可忽略)")
+
+        # 6. GameCore_LoadDriver: bool __stdcall GameCore_LoadDriver()
         try:
             self.dll.GameCore_LoadDriver.argtypes = []
             self.dll.GameCore_LoadDriver.restype = ctypes.c_bool
             logger.info("设置 GameCore_LoadDriver 函数签名成功")
         except AttributeError:
-            # GameCore_LoadDriver 可能是可选的，如果不存在，load_driver 方法会处理
             logger.warning("DLL 中未找到 GameCore_LoadDriver 函数")
+
+    def get_friend_list(self) -> List[Dict[str, any]]:
+        """
+        核心接口：调用 GameCore_TraverseFriendList 获取好友列表
+        :return: 解析后的好友列表（字典格式，便于使用）
+                 字典字段：id, name, friend_ptr, unique_id
+        """
+        if not self._is_loaded:
+            raise RuntimeError("DLL 未加载，无法获取好友列表")
+
+        friends = []
+        result_ptr = None
+
+        try:
+            # 1. 调用 C++ 函数获取结果指针
+            logger.info("开始调用 GameCore_TraverseFriendList 获取好友列表...")
+            result_ptr = self.dll.GameCore_TraverseFriendList()
+
+            if not result_ptr:
+                logger.warning("调用 GameCore_TraverseFriendList 返回空指针")
+                return friends
+
+            # 2. 解析结果结构体
+            result = result_ptr.contents
+            logger.info(f"获取到 {result.count} 个好友，缓冲区大小: {result.buffer_size} bytes")
+
+            if result.count <= 0 or not result.data:
+                logger.info("未找到有效好友数据")
+                return friends
+
+            # 3. 遍历好友数据并解析
+            for i in range(result.count):
+                friend_info = result.data[i]
+                
+                # 解码 UTF-8 字符串（处理空值和截断）
+                friend_id = friend_info.id_utf8.decode("utf-8", errors="replace").rstrip("\x00")
+                friend_name = friend_info.name_utf8.decode("utf-8", errors="replace").rstrip("\x00")
+
+                # 封装为字典（便于使用）
+                friend_dict = {
+                    "id": friend_id,
+                    "name": friend_name,
+                    "friend_ptr": hex(friend_info.friend_ptr),  # 转16进制字符串
+                    "unique_id": hex(friend_info.unique_id)    # 转16进制字符串
+                }
+                friends.append(friend_dict)
+                logger.debug(f"解析好友 [{i}]: {friend_dict}")
+
+            return friends
+
+        except Exception as e:
+            logger.error(f"解析好友列表异常: {e}")
+            return friends
+
+        finally:
+            # 4. 必须释放 C++ 端分配的内存（避免内存泄漏）
+            if result_ptr:
+                logger.info("释放好友列表内存...")
+                self.dll.GameCore_FreeFriendListResult(result_ptr)
+
+    def add_friend(self, name: str, friend_id: str) -> bool:
+        """
+        调用 GameCore_AddFriend 添加好友
+        :param name: 好友名称
+        :param friend_id: 好友ID
+        :return: 添加是否成功
+        """
+        if not self._is_loaded:
+            raise RuntimeError("DLL 未加载，无法添加好友")
+
+        try:
+            # 确保传入的是 UTF-8 编码的字节串
+            name_bytes = name.encode("utf-8")
+            id_bytes = friend_id.encode("utf-8")
+
+            logger.info(f"正在添加好友: Name={name}, ID={friend_id}")
+            result = self.dll.GameCore_AddFriend(name_bytes, id_bytes)
+            
+            if result:
+                logger.info("添加好友成功")
+            else:
+                logger.warning("添加好友失败")
+            
+            return result
+
+        except Exception as e:
+            logger.error(f"添加好友异常: {e}")
+            return False
+
+    def init_game_data(self) -> None:
+        """初始化游戏数据"""
+        if not self._is_loaded:
+            raise RuntimeError("DLL 未加载")
+        
+        try:
+            if hasattr(self.dll, 'GameCore_InitGameData'):
+                self.dll.GameCore_InitGameData()
+                logger.info("已调用 GameCore_InitGameData")
+            else:
+                logger.warning("GameCore_InitGameData 不存在，跳过初始化")
+        except Exception as e:
+            logger.error(f"初始化游戏数据异常: {e}")
+
+    def cleanup_game_data(self) -> None:
+        """清理游戏数据"""
+        if not self._is_loaded:
+            return
+
+        try:
+            if hasattr(self.dll, 'GameCore_CleanupGameData'):
+                self.dll.GameCore_CleanupGameData()
+                logger.info("已调用 GameCore_CleanupGameData")
+        except Exception as e:
+            logger.error(f"清理游戏数据异常: {e}")
 
     def load_driver(self) -> bool:
         """
@@ -277,82 +392,66 @@ class ArcGameManager:
             logger.error(f"加载驱动异常: {e}")
             return False
 
-    def get_friend_list(self) -> List[Dict[str, str]]:
-        """
-        获取好友列表
-        :return: 好友列表 [{"name": "xxx", "id": "xxx"}, ...]
-        """
-        if not self._is_loaded:
-            raise RuntimeError("DLL 未加载")
+    def close(self) -> None:
+        """释放资源"""
+        self.cleanup_game_data()
 
-        result_ptr = None
-        friends = []
+    def __del__(self):
+        """析构函数：确保资源释放"""
 
-        try:
-            logger.info("调用 GameCore_TraverseFriendList...")
-            result_ptr = self.dll.GameCore_TraverseFriendList()
-            
-            if not result_ptr:
-                logger.warning("GameCore_TraverseFriendList 返回空指针")
-                return []
+# --------------------------
+# 上下文管理器（可选，更优雅的资源管理）
+# --------------------------
+class ArcGameManagerContext:
+    def __init__(self, dll_path: Optional[str] = None):
+        self.dll_path = dll_path
+        self.manager: Optional[ArcGameManager] = None
 
-            # 获取结构体内容
-            result = result_ptr.contents
-            count = result.count
-            logger.info(f"获取到 {count} 个好友")
+    def __enter__(self) -> ArcGameManager:
+        self.manager = ArcGameManager(self.dll_path)
+        return self.manager
 
-            if count > 0 and result.data:
-                # 遍历数组
-                # result.data 是 FriendInfo 的指针，可以像数组一样访问
-                for i in range(count):
-                    info = result.data[i]
-                    name = info.name_utf8.decode('utf-8', errors='ignore')
-                    fid = info.id_utf8.decode('utf-8', errors='ignore')
-                    friends.append({"name": name, "id": fid})
-                    # logger.debug(f"好友 {i}: {name} ({fid})")
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.manager:
+            self.manager.close()
+        if exc_val:
+            logger.error(f"GameManager 上下文异常: {exc_val}")
+        return False
 
-            return friends
+# --------------------------
+# 测试示例
+# --------------------------
+if __name__ == "__main__":
+    # 方式1：普通调用
+    # try:
+    #     # 初始化管理器（自动搜索 DLL）
+    #     gm = ArcGameManager()
+    #     # 获取好友列表
+    #     friend_list = gm.get_friend_list()
+    #     # 打印结果
+    #     print(f"\n===== 好友列表（共 {len(friend_list)} 个） =====")
+    #     for idx, friend in enumerate(friend_list):
+    #         print(f"[{idx+1}] ID: {friend['id']} | 名称: {friend['name']} | 唯一标识: {friend['unique_id']}")
+    #     # 清理资源
+    #     gm.close()
+    # except Exception as e:
+    #     logger.error(f"测试失败: {e}")
 
-        except Exception as e:
-            logger.error(f"获取好友列表失败: {e}")
-            return []
-        finally:
-            # 释放内存
-            if result_ptr:
-                try:
-                    self.dll.GameCore_FreeFriendListResult(result_ptr)
-                    # logger.info("释放 C++ 内存成功")
-                except Exception as e:
-                    logger.error(f"释放内存失败: {e}")
+    # 方式2：上下文管理器（推荐，自动管理资源）
+    try:
+        with ArcGameManagerContext() as gm:
+            gm.init_game_data()
+            friend_list = gm.get_friend_list()
+            print(f"\n===== 好友列表（共 {len(friend_list)} 个） =====")
+            for idx, friend in enumerate(friend_list):
+                print(f"[{idx+1}] ID: {friend['id']} | 名称: {friend['name']} | 唯一标识: {friend['unique_id']}")
 
-    def add_friend(self, name: str, friend_id: str) -> bool:
-        """
-        添加好友
-        :param name: 好友名称
-        :param friend_id: 好友ID
-        :return: 是否成功
-        """
-        if not self._is_loaded:
-            raise RuntimeError("DLL 未加载")
-            
-        try:
-            name_bytes = name.encode('utf-8')
-            id_bytes = friend_id.encode('utf-8')
-            
-            logger.info(f"调用 GameCore_AddFriend({name}, {friend_id})...")
-            result = self.dll.GameCore_AddFriend(name_bytes, id_bytes)
-            return result
-        except Exception as e:
-            logger.error(f"添加好友失败: {e}")
-            return False
-
-    def init_game_data(self) -> None:
-        """初始化游戏数据"""
-        if not self._is_loaded:
-            raise RuntimeError("DLL 未加载")
-            
-        try:
-            logger.info("调用 GameCore_InitGameData...")
-            self.dll.GameCore_InitGameData()
-        except Exception as e:
-            logger.error(f"初始化游戏数据失败: {e}")
+            #死循环 每一秒打印打印当前时间
+            import time
+            while True:
+                print(f"当前时间: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}")
+                time.sleep(1)
+    except FileNotFoundError as e:
+        logger.error(f"DLL 加载失败: {e}")
+    except Exception as e:
+        logger.error(f"程序异常: {e}")
