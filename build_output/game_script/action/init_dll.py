@@ -76,5 +76,7 @@ class Init_Dll(py_trees.behaviour.Behaviour):
         if self._check_and_click_continue():
             return py_trees.common.Status.RUNNING
         self._async_init_data()
+        time.sleep(0.1)
+        arc_api.mouse_click(1501,860,0)
         self.blackboard.init_dll = True
         return py_trees.common.Status.RUNNING
