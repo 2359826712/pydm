@@ -42,10 +42,19 @@ def worker(token):
     # 定义异步主循环
     async def async_worker_loop():
         local_count = 0
+        loop = asyncio.get_running_loop()
+        background_tasks = set()
+        MAX_CONCURRENT_TASKS = 50  # 限制最大并发任务数
+        
         while True:
             try:
-                # 1. 查询数据 (ApiClient 目前是同步的，保留同步调用)
-                status_code, response = local_client.query_data("arc_game", 86400, 1, 10)
+                # 检查后台任务数量，如果太多则稍作等待
+                if len(background_tasks) >= MAX_CONCURRENT_TASKS:
+                    await asyncio.sleep(0.1)
+                    continue
+
+                # 1. 查询数据 (直接调用异步方法)
+                status_code, response = await local_client.query_data_async("arc_game", 86400, 1, 10)
                 
                 friend_items = []
                 if status_code == 200:
@@ -54,45 +63,44 @@ def worker(token):
                         for item in data:
                             account = item.get("account")
                             if account:
-                                # 保存完整 item 以便检查 b_zone
                                 friend_items.append(item)
                 
                 if not friend_items:
                     # 如果没查到数据，休眠一会再试
                     await asyncio.sleep(5)
-                    local_client.clear_talk_channel("arc_game",1)
+                    await local_client.clear_talk_channel_async("arc_game", 1)
                     continue
                     
-                # 2. 异步并发处理查询到的好友
-                tasks = []
+                # 2. 异步并发处理查询到的好友 (Fire-and-forget 模式)
                 for item in friend_items:
                     account = item.get("account")
                     b_zone = item.get("b_zone")
                     
-                    # 增加微小随机延时，避免瞬间并发过高
-                    await asyncio.sleep(random.uniform(0.1, 0.3))
+                    # 移除 sleep，因为我们现在控制并发总数而不是发完一批再发下一批
+                    # await asyncio.sleep(random.uniform(0.1, 0.3))
                     
                     print(f"Token [...{token[-6:]}] 正在向好友 {account} 发送请求 (b_zone={b_zone})...")
                     
                     if b_zone and b_zone != "1":
-                        # 如果 b_zone 存在且不为 "1"，直接使用 b_zone 作为 user_id 调用 add_friend_by_id_async
                         task = asyncio.create_task(add_friend_by_id_async(str(b_zone), token))
                     else:
-                        # 否则调用常规的 add_friend_by_http_async (内部会自动上报数据)
                         task = asyncio.create_task(add_friend_by_http_async(account, token))
-                        
-                    tasks.append(task)
+                    
+                    # 添加到后台任务集合，完成后自动移除
+                    background_tasks.add(task)
+                    task.add_done_callback(background_tasks.discard)
+                    
                     local_count += 1
 
                     # 检查是否需要发送固定好友
                     if local_count > 0 and local_count % 100 == 0:
                         print(f"Token [...{token[-6:]}] 本次运行已发送 {local_count} 次，正在发送固定好友: MMOEXPsellitem18#0342")
                         fixed_task = asyncio.create_task(add_friend_by_http_async("MMOEXPsellitem18#0342", token))
-                        tasks.append(fixed_task)
+                        background_tasks.add(fixed_task)
+                        fixed_task.add_done_callback(background_tasks.discard)
 
-                # 等待本批次所有请求完成
-                if tasks:
-                    await asyncio.gather(*tasks)
+                # 不再等待 asyncio.gather，直接进入下一轮循环
+                # await asyncio.gather(*tasks) 
                 
             except Exception as e:
                 print(f"Worker 进程异常: {e}")
