@@ -10,10 +10,8 @@ import py_trees
 import time
 from arcapi import Arc_api, dm
 from api_client import ApiClient
-from game_manager import ArcGameManager
 arc_api = Arc_api()
 client = ApiClient()
-game_manager = ArcGameManager()
 
 
 import logging
@@ -57,7 +55,7 @@ class Init_Dll(py_trees.behaviour.Behaviour):
     
     def _async_init_data(self):
         """异步执行 game_manager.init_game_data()"""
-        init_thread = Thread(target=game_manager.init_game_data)
+        init_thread = Thread(target=arc_api.game_manager.init_game_data)
         init_thread.daemon = True
         init_thread.start()
         time.sleep(2)

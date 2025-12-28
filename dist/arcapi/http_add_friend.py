@@ -28,6 +28,9 @@ class HttpFriendManager:
         else:
             self.auth_token = auth_token
 
+        # 使用 Session 复用 TCP 连接，显著减少握手耗时
+        self.session = requests.Session()
+        
         self.headers = {
             "Accept": "application/json",
             "Authorization": self.auth_token,
@@ -36,6 +39,7 @@ class HttpFriendManager:
             "Accept-Encoding": "gzip, deflate, br",
             "Connection": "keep-alive"
         }
+        self.session.headers.update(self.headers)
 
     def get_user_id_by_displayname(self, name: str, discriminator: str) -> Optional[int]:
         """
@@ -52,7 +56,8 @@ class HttpFriendManager:
         
         try:
             logger.info(f"正在查询用户: {name}#{discriminator}")
-            response = requests.post(url, headers=self.headers, json=payload, timeout=10)
+            # 缩短超时时间，利用 Session 复用连接
+            response = self.session.post(url, json=payload, timeout=3)
             
             # 检查响应状态码
             if response.status_code != 200:
@@ -89,7 +94,7 @@ class HttpFriendManager:
         
         try:
             logger.info(f"正在发送好友请求给 ID: {target_tenancy_user_id}")
-            response = requests.post(url, headers=self.headers, json=payload, timeout=10)
+            response = self.session.post(url, json=payload, timeout=3)
             
             if response.status_code == 200:
                 logger.info("好友请求发送成功")

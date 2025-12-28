@@ -10,10 +10,8 @@ import py_trees
 import time
 from arcapi import Arc_api, dm
 from api_client import ApiClient
-from game_manager import ArcGameManager
 arc_api = Arc_api()
 client = ApiClient()
-game_manager = ArcGameManager()
 
 
 import json
@@ -82,7 +80,7 @@ class Collect(py_trees.behaviour.Behaviour):
         if int(pos[0]) <= 0 :
             self.blackboard.need_collect = False
             if self.blackboard.init_dll:
-                friend_list = game_manager.get_friend_list()
+                friend_list = arc_api.game_manager.get_friend_list()
                 print(f"\n===== 好友列表（共 {len(friend_list)} 个） =====")
                 
                 has_new_friend = False

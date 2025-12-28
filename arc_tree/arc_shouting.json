@@ -6,33 +6,33 @@
     "children": [
       {
         "id": 2,
-        "name": "Set_Game_Window"
+        "name": "Invite"
       },
       {
         "id": 3,
+        "name": "Set_Game_Window"
+      },
+      {
+        "id": 4,
         "name": "Selector",
         "children": [
           {
-            "id": 4,
+            "id": 5,
             "name": "Start_Game"
           },
           {
-            "id": 5,
+            "id": 6,
             "name": "Sequence",
             "children": [
               {
-                "id": 6,
+                "id": 7,
                 "name": "is_not_ Initialize"
               },
               {
-                "id": 7,
+                "id": 8,
                 "name": " Initialize"
               }
             ]
-          },
-          {
-            "id": 8,
-            "name": "Invite"
           }
         ]
       },

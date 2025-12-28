@@ -5,6 +5,7 @@ import struct
 import win32gui
 import win32process
 import time
+from game_manager import ArcGameManager
 
 # 检查 Python 位数
 is_64bits = struct.calcsize('P') * 8 == 64
@@ -68,7 +69,7 @@ class Arc_api:
         dm.SetMouseSpeed(6)
         a =dm.SetShowErrorMsg(0)
         print(a)
-        print(1111111111111111111111)
+        self.game_manager = ArcGameManager()
         # 设置 pic 目录
         if getattr(sys, 'frozen', False):
              # exe 模式：在 exe 同级目录下找 pic 文件夹
@@ -268,40 +269,63 @@ class Arc_api:
                 print(f"配置文件不存在: {file_path}")
                 return []
                 
+            # Check modification time to avoid frequent reads and logging
+            mtime = os.path.getmtime(file_path)
+            if hasattr(self, '_last_token_mtime') and self._last_token_mtime == mtime and hasattr(self, '_cached_tokens'):
+                return self._cached_tokens
+
             tokens = []
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
                 
-            # 按行处理，但也支持简单的多行合并（如果用户手动换行了）
+            # 按行处理，支持多行 token 定义 (token = { ... | ... })
             lines = content.splitlines()
+            full_token_str = ""
+            found_token = False
+            
             for line in lines:
-                if "token" in line and "=" in line:
-                    parts = line.split('=', 1)
-                    if len(parts) > 1:
-                        raw_value = parts[1].strip()
-                        # print(f"DEBUG: 找到配置行: {raw_value[:50]}...")
-                        
-                        # 移除外层的括号
-                        raw_value = raw_value.strip().strip('{}[]').strip()
-                        
-                        # 尝试分割
-                        if '|' in raw_value:
-                            raw_tokens = raw_value.split('|')
-                        elif ',' in raw_value:
-                             # 兼容逗号分割
-                             raw_tokens = raw_value.split(',')
-                        else:
-                             raw_tokens = [raw_value]
-                             
-                        for t in raw_tokens:
-                            # 清理多余的标点符号
-                            clean_t = t.strip().strip('{}[]"\'').strip()
-                            if clean_t and len(clean_t) > 20: # 简单的长度过滤，避免读取到空字符串或垃圾字符
-                                tokens.append(clean_t)
-                                # print(f"DEBUG: 解析到 Token: {clean_t[:20]}...")
+                stripped_line = line.strip()
+                if not found_token:
+                    if "token" in stripped_line and "=" in stripped_line:
+                        found_token = True
+                        full_token_str += stripped_line
+                else:
+                    full_token_str += stripped_line
+                
+                # 如果已经找到 token 且当前行包含 }，则视为结束
+                if found_token and "}" in stripped_line:
+                    break
+            
+            if full_token_str:
+                parts = full_token_str.split('=', 1)
+                if len(parts) > 1:
+                    raw_value = parts[1].strip()
+                    
+                    # 移除外层的括号
+                    raw_value = raw_value.strip().strip('{}[]').strip()
+                    
+                    # 尝试分割
+                    if '|' in raw_value:
+                        raw_tokens = raw_value.split('|')
+                    elif ',' in raw_value:
+                            # 兼容逗号分割
+                            raw_tokens = raw_value.split(',')
+                    else:
+                            raw_tokens = [raw_value]
+                            
+                    for t in raw_tokens:
+                        # 清理多余的标点符号
+                        clean_t = t.strip().strip('{}[]"\'').strip()
+                        if clean_t and len(clean_t) > 20: # 简单的长度过滤，避免读取到空字符串或垃圾字符
+                            tokens.append(clean_t)
             
             # 去重
             tokens = list(set(tokens))
+            
+            # Update cache
+            self._last_token_mtime = mtime
+            self._cached_tokens = tokens
+            
             print(f"成功读取到 {len(tokens)} 个 Token")
             return tokens
         except Exception as e:

@@ -10,10 +10,10 @@ import py_trees
 import time
 from arcapi import Arc_api, dm
 from api_client import ApiClient
-from game_manager import ArcGameManager
+# from game_manager import ArcGameManager # 移除直接引用
 arc_api = Arc_api()
 client = ApiClient()
-game_manager = ArcGameManager()
+# game_manager = ArcGameManager() # 移除全局实例
 
 import json
 import logging
@@ -71,7 +71,7 @@ class Start_Game(py_trees.behaviour.Behaviour):
         self.blackboard.create_collect = True
         if not self.first_add_friend and self.blackboard.init_dll and arc_api.select_mode() !="2":
             self.first_add_friend = True
-            friend_list = game_manager.get_friend_list()
+            friend_list = arc_api.game_manager.get_friend_list()
             print(f"\n===== 好友列表（共 {len(friend_list)} 个） =====")
             
             has_new_friend = False

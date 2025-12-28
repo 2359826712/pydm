@@ -10,10 +10,8 @@ import py_trees
 import time
 from arcapi import Arc_api, dm
 from api_client import ApiClient
-from game_manager import ArcGameManager
 arc_api = Arc_api()
 client = ApiClient()
-game_manager = ArcGameManager()
 
 
 import logging

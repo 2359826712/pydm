@@ -9,9 +9,7 @@ from time import thread_time_ns
 import py_trees
 import time
 from arcapi import Arc_api, dm
-from game_manager import ArcGameManager
 arc_api = Arc_api()
-game_manager = ArcGameManager()
 
 import logging
 # 配置日志记录器
@@ -106,7 +104,7 @@ class Set_Game_Window(py_trees.behaviour.Behaviour):
         else:
             self.blackboard.set("init_dll",False)
             if not self.clean_data:
-                game_manager.cleanup_game_data()
+                arc_api.game_manager.cleanup_game_data()
                 self.clean_data = True
             if self.time1 and time.time() - self.time1 < 180 :
                 print("等待游戏启动")
