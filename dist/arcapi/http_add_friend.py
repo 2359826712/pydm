@@ -82,6 +82,34 @@ class HttpFriendManager:
             logger.error(f"查询用户时发生异常: {e}")
             return None
 
+    async def delete_friendship(self, session: aiohttp.ClientSession, target_tenancy_user_id: int) -> bool:
+        """
+        删除好友关系
+        :param session: aiohttp session
+        :param target_tenancy_user_id: 目标用户的 tenancyUserId
+        :return: 是否成功
+        """
+        url = f"{self.BASE_URL}/shared/social/friends/delete-friendship"
+        payload = {
+            "target_tenancy_user_id": target_tenancy_user_id
+        }
+        
+        try:
+            logger.info(f"正在删除好友关系 ID: {target_tenancy_user_id}")
+            # 注意：虽然是删除操作，但根据用户提供的示例，使用的是 POST 请求
+            async with session.post(url, json=payload, headers=self.headers, timeout=5) as response:
+                if response.status == 200:
+                    logger.info("删除好友成功")
+                    return True
+                else:
+                    text = await response.text()
+                    logger.error(f"删除好友失败: HTTP {response.status} - {text}")
+                    return False
+            
+        except Exception as e:
+            logger.error(f"删除好友时发生异常: {e}")
+            return False
+
     async def request_friendship(self, session: aiohttp.ClientSession, target_tenancy_user_id: int) -> bool:
         """
         发送好友请求
@@ -100,6 +128,10 @@ class HttpFriendManager:
                 if response.status == 200:
                     logger.info("好友请求发送成功")
                     return True
+                elif response.status == 409:
+                    logger.warning(f"好友请求冲突 (HTTP 409)，尝试删除好友: {target_tenancy_user_id}")
+                    # 如果返回 409，尝试删除好友
+                    return await self.delete_friendship(session, target_tenancy_user_id)
                 else:
                     text = await response.text()
                     logger.error(f"好友请求发送失败: HTTP {response.status} - {text}")
