@@ -29,6 +29,7 @@ class Start_Game(py_trees.behaviour.Behaviour):
         self.blackboard.register_key(key="need_collect", access=py_trees.common.Access.READ)#READ
         self.blackboard.register_key(key="need_collect", access=py_trees.common.Access.WRITE)#READ
         self.blackboard.register_key(key="in_game", access=py_trees.common.Access.READ)#READ
+        self.blackboard.register_key(key="in_game", access=py_trees.common.Access.WRITE)#READ
         self.blackboard.register_key(key="create_collect", access=py_trees.common.Access.READ)#READ
         self.blackboard.register_key(key="create_collect", access=py_trees.common.Access.WRITE)#READ
         self.blackboard.register_key(key="init_dll", access=py_trees.common.Access.READ)#READ
