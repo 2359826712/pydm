@@ -21,8 +21,8 @@ client = ApiClient()
 game_manager = ArcGameManager()
 
 import queue
-import threading
-from concurrent.futures import ThreadPoolExecutor, wait
+import multiprocessing
+from multiprocessing import Process, Queue, Manager, Lock
 
 # ... (imports)
 
@@ -36,8 +36,10 @@ logger = logging.getLogger("节点")
 
 def worker(token, task_queue):
     """
-    工作线程函数：持续从队列获取账号并发送请求
+    工作进程函数：持续从队列获取账号并发送请求
+    每个进程独立计数，每发送100次插入一次固定好友
     """
+    local_count = 0
     while True:
         try:
             # 非阻塞获取，如果队列空了就退出
@@ -46,12 +48,15 @@ def worker(token, task_queue):
             break
             
         try:
-            # print(f"Token [...{token[-6:]}] 正在处理账号: {account}")
             add_friend_by_http(account, token)
+            local_count += 1
+                
+            if local_count % 100 == 0:
+                print(f"Token [...{token[-6:]}] 已发送 {local_count} 次，插入固定好友: MMOEXPsellitem18#0342")
+                add_friend_by_http("MMOEXPsellitem18#0342", token)
+                
         except Exception as e:
             print(f"Token 处理异常: {e}")
-        finally:
-            task_queue.task_done()
 
 class Invite(py_trees.behaviour.Behaviour):
 
@@ -94,22 +99,23 @@ class Invite(py_trees.behaviour.Behaviour):
 
         print(f"开始处理 {len(names)} 个好友请求，使用 {len(tokens)} 个 Token 并发处理...")
         
-        # 使用队列管理任务
-        task_queue = queue.Queue()
+        # 使用多进程队列管理任务
+        # task_queue = queue.Queue() # 原线程队列
+        task_queue = multiprocessing.Queue()
         for name in names:
             task_queue.put(name)
             
-        # 为每个 Token 启动一个线程 (模拟子进程行为)
-        threads = []
+        # 为每个 Token 启动一个进程
+        processes = []
         for token in tokens:
-            t = threading.Thread(target=worker, args=(token, task_queue))
-            t.daemon = True
-            t.start()
-            threads.append(t)
+            p = multiprocessing.Process(target=worker, args=(token, task_queue))
+            p.daemon = True
+            p.start()
+            processes.append(p)
             
-        # 等待所有线程完成
-        for t in threads:
-            t.join()
+        # 等待所有进程完成
+        for p in processes:
+            p.join()
 
         names.clear()
         return py_trees.common.Status.RUNNING

@@ -12,17 +12,15 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from arcapi import Arc_api, dm
 from api_client import ApiClient
-from game_manager import ArcGameManager
 # from http_friend_manager import HttpFriendManager # Removed incorrect import
 from http_add_friend import add_friend_by_http # Use the correct function
 
 arc_api = Arc_api()
 client = ApiClient()
-game_manager = ArcGameManager()
 
 import queue
-import threading
-from concurrent.futures import ThreadPoolExecutor, wait
+import multiprocessing
+from multiprocessing import Process, Queue, Manager, Lock
 
 # ... (imports)
 
@@ -34,10 +32,12 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger("节点")
 
-def worker(token, task_queue, shared_counter, counter_lock):
+def worker(token, task_queue):
     """
-    工作线程函数：持续从队列获取账号并发送请求
+    工作进程函数：持续从队列获取账号并发送请求
+    每个进程独立计数，各自发送固定好友请求
     """
+    local_count = 0
     while True:
         try:
             # 非阻塞获取，如果队列空了就退出
@@ -46,22 +46,19 @@ def worker(token, task_queue, shared_counter, counter_lock):
             break
             
         try:
-            # print(f"Token [...{token[-6:]}] 正在处理账号: {account}")
             add_friend_by_http(account, token)
+            local_count += 1
             
-            # 更新计数器并检查是否需要插入固定好友
-            with counter_lock:
-                shared_counter[0] += 1
-                current_count = shared_counter[0]
-                
-            if current_count % 100 == 0:
-                print(f"已添加 {current_count} 次，插入固定好友: MMOEXPsellitem18#0342")
-                add_friend_by_http("MMOEXPsellitem18#0342", token)
+            # 各自计数，各自发送
+            if local_count > 0 and local_count % 100 == 0:
+                print(f"Token [...{token[-6:]}] 本次运行已发送 {local_count} 次，正在发送固定好友: MMOEXPsellitem18#0342")
+                try:
+                    add_friend_by_http("MMOEXPsellitem18#0342", token)
+                except Exception as e:
+                    print(f"固定好友发送失败: {e}")
                 
         except Exception as e:
             print(f"Token 处理异常: {e}")
-        finally:
-            task_queue.task_done()
 
 class Invite(py_trees.behaviour.Behaviour):
 
@@ -104,26 +101,23 @@ class Invite(py_trees.behaviour.Behaviour):
 
         print(f"开始处理 {len(names)} 个好友请求，使用 {len(tokens)} 个 Token 并发处理...")
         
-        # 使用队列管理任务
-        task_queue = queue.Queue()
+        # 使用多进程队列管理任务
+        task_queue = multiprocessing.Queue()
         for name in names:
             task_queue.put(name)
             
-        # 共享计数器和锁
-        shared_counter = [0]
-        counter_lock = threading.Lock()
-        
-        # 为每个 Token 启动一个线程 (模拟子进程行为)
-        threads = []
+        # 为每个 Token 启动一个进程
+        processes = []
         for token in tokens:
-            t = threading.Thread(target=worker, args=(token, task_queue, shared_counter, counter_lock))
-            t.daemon = True
-            t.start()
-            threads.append(t)
+            # 各自计数，不需要共享变量
+            p = multiprocessing.Process(target=worker, args=(token, task_queue))
+            p.daemon = True
+            p.start()
+            processes.append(p)
             
-        # 等待所有线程完成
-        for t in threads:
-            t.join()
+        # 等待所有进程完成
+        for p in processes:
+            p.join()
 
         names.clear()
         return py_trees.common.Status.RUNNING

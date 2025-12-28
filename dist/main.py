@@ -19,8 +19,10 @@ arc_api = Arc_api()
 arc_api.init_data()
 import traceback
 import time
+import multiprocessing
 
 if __name__ == "__main__":
+    multiprocessing.freeze_support()
     blackboard = py_trees.blackboard.Blackboard()
     blackboard.set("bind_windows",False)
     blackboard.set("in_game",False)

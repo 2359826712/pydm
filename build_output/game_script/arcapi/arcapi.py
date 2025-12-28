@@ -270,18 +270,39 @@ class Arc_api:
                 
             tokens = []
             with open(file_path, 'r', encoding='utf-8') as f:
-                for line in f:
-                    if "token" in line and "=" in line:
-                        parts = line.split('=', 1)
-                        if len(parts) > 1:
-                            raw_token = parts[1].strip()
-                            # 处理可能的分隔符和清理字符
-                            raw_tokens = raw_token.split('|')
-                            for t in raw_tokens:
-                                # 清理多余的标点符号 (JSON格式残留)
-                                clean_t = t.strip().strip('{}').strip().strip('"\'').strip()
-                                if clean_t:
-                                    tokens.append(clean_t)
+                content = f.read()
+                
+            # 按行处理，但也支持简单的多行合并（如果用户手动换行了）
+            lines = content.splitlines()
+            for line in lines:
+                if "token" in line and "=" in line:
+                    parts = line.split('=', 1)
+                    if len(parts) > 1:
+                        raw_value = parts[1].strip()
+                        # print(f"DEBUG: 找到配置行: {raw_value[:50]}...")
+                        
+                        # 移除外层的括号
+                        raw_value = raw_value.strip().strip('{}[]').strip()
+                        
+                        # 尝试分割
+                        if '|' in raw_value:
+                            raw_tokens = raw_value.split('|')
+                        elif ',' in raw_value:
+                             # 兼容逗号分割
+                             raw_tokens = raw_value.split(',')
+                        else:
+                             raw_tokens = [raw_value]
+                             
+                        for t in raw_tokens:
+                            # 清理多余的标点符号
+                            clean_t = t.strip().strip('{}[]"\'').strip()
+                            if clean_t and len(clean_t) > 20: # 简单的长度过滤，避免读取到空字符串或垃圾字符
+                                tokens.append(clean_t)
+                                # print(f"DEBUG: 解析到 Token: {clean_t[:20]}...")
+            
+            # 去重
+            tokens = list(set(tokens))
+            print(f"成功读取到 {len(tokens)} 个 Token")
             return tokens
         except Exception as e:
             print(f"读取Token失败: {e}")
