@@ -81,6 +81,8 @@ def build():
         '--hidden-import=pythoncom',
         '--hidden-import=requests',
         '--hidden-import=concurrent.futures',
+        '--hidden-import=aiohttp',
+        '--hidden-import=asyncio',
     ]
     
     print("Running PyInstaller...")

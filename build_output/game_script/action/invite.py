@@ -20,7 +20,10 @@ client = ApiClient()
 
 import queue
 import multiprocessing
+import random
+import asyncio
 from multiprocessing import Process, Queue, Manager, Lock
+from http_add_friend import add_friend_by_http, add_friend_by_http_async # Use the correct function
 
 import logging
 # 配置日志记录器
@@ -29,56 +32,64 @@ logger = logging.getLogger("节点")
 
 def worker(token):
     """
-    工作进程函数：持续查询并发送请求
+    工作进程函数：持续查询并发送请求 (Async Version)
     每个进程独立计数，各自发送固定好友请求
     """
     # 在进程内部初始化 ApiClient
     local_client = ApiClient()
-    local_count = 0
     
     print(f"进程启动: Token [...{token[-6:]}]")
-    
-    while True:
-        try:
-            # 1. 查询数据
-            status_code, response = local_client.query_data("arc_game", 86400, 1, 10)
-            
-            names = []
-            if status_code == 200:
-                data = response.get("data", [])
-                if isinstance(data, list):
-                    for item in data:
-                        account = item.get("account")
-                        if account:
-                            names.append(account)
-            
-            if not names:
-                # 如果没查到数据，休眠一会再试，避免频繁请求
-                time.sleep(5)
-                continue
+
+    # 定义异步主循环
+    async def async_worker_loop():
+        local_count = 0
+        while True:
+            try:
+                # 1. 查询数据 (ApiClient 目前是同步的，保留同步调用)
+                status_code, response = local_client.query_data("arc_game", 86400, 1, 10)
                 
-            # 2. 处理查询到的好友
-            for account in names:
-                try:
-                    time1=time.time()
-                    add_friend_by_http(account, token)
-                    print("add_friend_by_http时间",time.time()-time1)
-                    local_count += 1
+                names = []
+                if status_code == 200:
+                    data = response.get("data", [])
+                    if isinstance(data, list):
+                        for item in data:
+                            account = item.get("account")
+                            if account:
+                                names.append(account)
+                
+                if not names:
+                    # 如果没查到数据，休眠一会再试
+                    await asyncio.sleep(5)
+                    continue
                     
-                    # 各自计数，各自发送固定好友
-                    if local_count > 0 and local_count % 10 == 0:
+                # 2. 异步并发处理查询到的好友
+                tasks = []
+                for account in names:
+                    # 增加微小随机延时，避免瞬间并发过高
+                    await asyncio.sleep(random.uniform(0.1, 0.3))
+                    
+                    print(f"Token [...{token[-6:]}] 正在向好友 {account} 发送请求...")
+                    # 创建异步任务
+                    task = asyncio.create_task(add_friend_by_http_async(account, token))
+                    tasks.append(task)
+                    local_count += 1
+
+                    # 检查是否需要发送固定好友
+                    if local_count > 0 and local_count % 100 == 0:
                         print(f"Token [...{token[-6:]}] 本次运行已发送 {local_count} 次，正在发送固定好友: MMOEXPsellitem18#0342")
-                        try:
-                            add_friend_by_http("MMOEXPsellitem18#0342", token)
-                        except Exception as e:
-                            print(f"固定好友发送失败: {e}")
-                            
-                except Exception as e:
-                    print(f"Token 处理异常: {e}")
-            
-        except Exception as e:
-            print(f"Worker 进程异常: {e}")
-            time.sleep(5)
+                        fixed_task = asyncio.create_task(add_friend_by_http_async("MMOEXPsellitem18#0342", token))
+                        tasks.append(fixed_task)
+
+                # 等待本批次所有请求完成
+                if tasks:
+                    await asyncio.gather(*tasks)
+                
+            except Exception as e:
+                print(f"Worker 进程异常: {e}")
+                await asyncio.sleep(5)
+
+    # 运行异步循环
+    asyncio.run(async_worker_loop())
 
 class Invite(py_trees.behaviour.Behaviour):
 

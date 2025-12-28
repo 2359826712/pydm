@@ -1,5 +1,5 @@
-import requests
-import json
+import aiohttp
+import asyncio
 import logging
 from typing import Optional, Dict, Any
 
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 class HttpFriendManager:
     """
-    HTTP 接口封装：用于通过 API 添加好友
+    HTTP 接口封装：用于通过 API 添加好友 (Async version)
     """
     BASE_URL = "https://api-gateway.europe.es-pio.net/v1"
 
@@ -28,9 +28,6 @@ class HttpFriendManager:
         else:
             self.auth_token = auth_token
 
-        # 使用 Session 复用 TCP 连接，显著减少握手耗时
-        self.session = requests.Session()
-        
         self.headers = {
             "Accept": "application/json",
             "Authorization": self.auth_token,
@@ -39,11 +36,11 @@ class HttpFriendManager:
             "Accept-Encoding": "gzip, deflate, br",
             "Connection": "keep-alive"
         }
-        self.session.headers.update(self.headers)
 
-    def get_user_id_by_displayname(self, name: str, discriminator: str) -> Optional[int]:
+    async def get_user_id_by_displayname(self, session: aiohttp.ClientSession, name: str, discriminator: str) -> Optional[int]:
         """
         通过用户名和 Tag 获取用户 ID (tenancyUserId)
+        :param session: aiohttp session
         :param name: 用户名 (e.g., "MMOEXPsellitem18")
         :param discriminator: 标识符 (e.g., "0342")
         :return: tenancyUserId (int) 或 None
@@ -56,34 +53,32 @@ class HttpFriendManager:
         
         try:
             logger.info(f"正在查询用户: {name}#{discriminator}")
-            # 缩短超时时间，利用 Session 复用连接
-            response = self.session.post(url, json=payload, timeout=3)
-            
-            # 检查响应状态码
-            if response.status_code != 200:
-                logger.error(f"查询用户失败: HTTP {response.status_code} - {response.text}")
-                return None
+            async with session.post(url, json=payload, headers=self.headers, timeout=5) as response:
+                # 检查响应状态码
+                if response.status != 200:
+                    text = await response.text()
+                    logger.error(f"查询用户失败: HTTP {response.status} - {text}")
+                    return None
 
-            data = response.json()
-            # logger.info(f"查询响应: {data}")
-            
-            # 解析返回数据
-            # 示例返回: {"tenancyUserId": 8959208161866405348, ...}
-            tenancy_user_id = data.get("tenancyUserId")
-            if tenancy_user_id:
-                logger.info(f"成功获取用户ID: {tenancy_user_id}")
-                return int(tenancy_user_id)
-            else:
-                logger.error("响应中未找到 tenancyUserId")
-                return None
+                data = await response.json()
+                
+                # 解析返回数据
+                tenancy_user_id = data.get("tenancyUserId")
+                if tenancy_user_id:
+                    logger.info(f"成功获取用户ID: {tenancy_user_id}")
+                    return int(tenancy_user_id)
+                else:
+                    logger.error("响应中未找到 tenancyUserId")
+                    return None
                 
         except Exception as e:
             logger.error(f"查询用户时发生异常: {e}")
             return None
 
-    def request_friendship(self, target_tenancy_user_id: int) -> bool:
+    async def request_friendship(self, session: aiohttp.ClientSession, target_tenancy_user_id: int) -> bool:
         """
         发送好友请求
+        :param session: aiohttp session
         :param target_tenancy_user_id: 目标用户的 tenancyUserId
         :return: 是否成功
         """
@@ -94,23 +89,23 @@ class HttpFriendManager:
         
         try:
             logger.info(f"正在发送好友请求给 ID: {target_tenancy_user_id}")
-            response = self.session.post(url, json=payload, timeout=3)
-            
-            if response.status_code == 200:
-                logger.info("好友请求发送成功")
-                return True
-            else:
-                logger.error(f"好友请求发送失败: HTTP {response.status_code} - {response.text}")
-                return False
+            async with session.post(url, json=payload, headers=self.headers, timeout=5) as response:
+                if response.status == 200:
+                    logger.info("好友请求发送成功")
+                    return True
+                else:
+                    text = await response.text()
+                    logger.error(f"好友请求发送失败: HTTP {response.status} - {text}")
+                    return False
             
         except Exception as e:
             logger.error(f"发送好友请求时发生异常: {e}")
             return False
 
-# 便捷调用函数
-def add_friend_by_http(name_with_tag: str, auth_token: str) -> bool:
+# 便捷调用函数 (Async)
+async def add_friend_by_http_async(name_with_tag: str, auth_token: str) -> bool:
     """
-    通过 HTTP 接口添加好友的完整流程
+    通过 HTTP 接口添加好友的完整流程 (Async)
     :param name_with_tag: 用户名#Tag (e.g., "Player#1234")
     :param auth_token: 认证 Token
     :return: 是否成功发送请求
@@ -123,13 +118,22 @@ def add_friend_by_http(name_with_tag: str, auth_token: str) -> bool:
     
     manager = HttpFriendManager(auth_token)
     
-    # 1. 获取用户 ID
-    user_id = manager.get_user_id_by_displayname(name, discriminator)
-    if not user_id:
+    async with aiohttp.ClientSession() as session:
+        # 1. 获取用户 ID
+        user_id = await manager.get_user_id_by_displayname(session, name, discriminator)
+        if not user_id:
+            return False
+            
+        # 2. 发送好友请求
+        return await manager.request_friendship(session, user_id)
+
+# 兼容同步调用 (但不建议在高性能场景使用，每次都会创建 loop)
+def add_friend_by_http(name_with_tag: str, auth_token: str) -> bool:
+    try:
+        return asyncio.run(add_friend_by_http_async(name_with_tag, auth_token))
+    except Exception as e:
+        logger.error(f"同步调用异步函数失败: {e}")
         return False
-        
-    # 2. 发送好友请求
-    return manager.request_friendship(user_id)
 
 if __name__ == "__main__":
     # 测试用例 (使用用户提供的示例 Token，注意 Token 可能已过期)
