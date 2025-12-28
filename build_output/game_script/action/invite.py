@@ -1,34 +1,23 @@
-
-from http.client import responses
 import sys
 import os
-import token
-script_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(os.path.join(script_dir))  # 添加上一级目录
-from threading import local
-import time 
 import py_trees
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from arcapi import Arc_api, dm
+from arcapi import Arc_api
 from api_client import ApiClient
-from http_add_friend import add_friend_by_http # Use the correct function
-
-arc_api = Arc_api()
-client = ApiClient()
-
-import queue
 import multiprocessing
-import random
 import asyncio
 import aiohttp
-from multiprocessing import Process, Queue, Manager, Lock
-from http_add_friend import add_friend_by_http, add_friend_by_http_async, add_friend_by_id_async # Use the correct function
-
+from http_add_friend import add_friend_by_http_async, add_friend_by_id_async
 import logging
+
 # 配置日志记录器
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger("节点")
+
+script_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.join(script_dir))  # 添加上一级目录
+
+arc_api = Arc_api()
 
 def worker(token):
     """
@@ -42,28 +31,15 @@ def worker(token):
 
     # 定义异步主循环
     async def async_worker_loop():
-        pid = os.getpid()
-        db_round = 0
-        total_success_count = 0  # 统计实际HTTP请求成功的数量 (HTTP 200)
-        total_http_blocked_count = 0  # 统计被拉黑的数量 (HTTP 400)
-        current_clear_streak = 0
-        max_clear_streak = 0
         
         local_count = 0
         loop = asyncio.get_running_loop()
         background_tasks = set()
-        MAX_CONCURRENT_TASKS = 50  # 限制最大并发任务数
         
-        # 包装任务以统计成功数
+        # 包装任务以捕获异常
         async def run_add_task(coro):
-            nonlocal total_success_count, total_http_blocked_count
             try:
-                status_code = await coro
-                # 现在 coro 返回 int 状态码
-                if status_code == 200:
-                    total_success_count += 1
-                elif status_code == 400:
-                    total_http_blocked_count += 1
+                await coro
             except Exception as e:
                 print(f"Task error: {e}")
 
@@ -77,7 +53,6 @@ def worker(token):
         async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
             while True:
                 try:
-                    db_round += 1
                     # 1. 查询数据 (直接调用异步方法)
                     status_code, response = await local_client.query_data_async("arc_game", 86400, 1, 1000)
                     
@@ -91,27 +66,11 @@ def worker(token):
                                     friend_items.append(item)
                     
                     if not friend_items:
-                        # 记录拉黑统计
-                        current_clear_streak += 1
-                        max_clear_streak = max(max_clear_streak, current_clear_streak)
-                        print(f"PID: {pid} | DB轮数: {db_round} | DB无数据(当前): {current_clear_streak} | DB无数据(最大): {max_clear_streak}")
-
                         # 如果没查到数据，休眠一会再试
                         await asyncio.sleep(5)
                         await local_client.clear_talk_channel_async("arc_game", 1)
                         continue
                     
-                    # 重置拉黑计数 (如果之前有拉黑)
-                    if current_clear_streak > 0:
-                        max_clear_streak = max(max_clear_streak, current_clear_streak)
-                        current_clear_streak = 0
-
-                    # 记录添加统计 (显示的是 Attempt 数量，Total 是实际成功数量)
-                    current_round_attempts = len(friend_items)
-                    print(f"PID: {pid} | DB轮数: {db_round} | 一轮添加: {current_round_attempts} | 总添加(成功): {total_success_count} | HTTP被拉黑: {total_http_blocked_count} | 最大DB无数据: {max_clear_streak}")
-                    
-                    log_context = f"PID: {pid} | DB轮数: {db_round} | 总添加(成功): {total_success_count} | HTTP被拉黑: {total_http_blocked_count} | 最大DB无数据: {max_clear_streak} |"
-                        
                     # 2. 异步并发处理查询到的好友 (Fire-and-forget 模式)
                     for item in friend_items:
                         account = item.get("account")
@@ -119,9 +78,9 @@ def worker(token):
                         
                         task_coro = None
                         if b_zone and b_zone != "1":
-                            task_coro = add_friend_by_id_async(str(b_zone), token, session, log_context)
+                            task_coro = add_friend_by_id_async(str(b_zone), token, session)
                         else:
-                            task_coro = add_friend_by_http_async(account, token, session, log_context)
+                            task_coro = add_friend_by_http_async(account, token, session)
                         
                         # 使用包装器创建任务
                         task = asyncio.create_task(run_add_task(task_coro))
@@ -134,8 +93,8 @@ def worker(token):
 
                         # 检查是否需要发送固定好友
                         if local_count > 0 and local_count % 100 == 0:
-                            print(f"Token [...{token[-6:]}] 本次运行已发送 {local_count} 次，正在发送固定好友: MMOEXPsellitem18#0342")
-                            fixed_coro = add_friend_by_http_async("MMOEXPsellitem18#0342", token, session, log_context)
+                            # print(f"Token [...{token[-6:]}] 本次运行已发送 {local_count} 次，正在发送固定好友: MMOEXPsellitem18#0342")
+                            fixed_coro = add_friend_by_http_async("MMOEXPsellitem18#0342", token, session)
                             fixed_task = asyncio.create_task(run_add_task(fixed_coro))
                             background_tasks.add(fixed_task)
                             fixed_task.add_done_callback(background_tasks.discard)
@@ -151,17 +110,9 @@ class Invite(py_trees.behaviour.Behaviour):
 
     def __init__(self,  name="加好友"):
         super(Invite, self).__init__(name)
-        self.blackboard = self.attach_blackboard_client()
-        self.blackboard.register_key(key="in_game", access=py_trees.common.Access.WRITE)#READ
-        self.blackboard.register_key(key="need_collect", access=py_trees.common.Access.WRITE)#READ
-        self.time = 0
-        self.create_number = 0
-        self.count = 0
-        self.time1 =0
         self.processes = {}
         
     def update(self) -> py_trees.common.Status:
-        self.time1 = time.time()
         if arc_api.select_mode() !="2" :
             return py_trees.common.Status.SUCCESS
             

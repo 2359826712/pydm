@@ -82,12 +82,11 @@ class HttpFriendManager:
             logger.error(f"查询用户时发生异常 ({name}#{discriminator}): {e}")
             return None
 
-    async def delete_friendship(self, session: aiohttp.ClientSession, target_tenancy_user_id: int, log_context: str = "") -> bool:
+    async def delete_friendship(self, session: aiohttp.ClientSession, target_tenancy_user_id: int) -> bool:
         """
         删除好友关系
         :param session: aiohttp session
         :param target_tenancy_user_id: 目标用户的 tenancyUserId
-        :param log_context: 日志上下文前缀
         :return: 是否成功
         """
         url = f"{self.BASE_URL}/shared/social/friends/delete-friendship"
@@ -96,28 +95,27 @@ class HttpFriendManager:
         }
         
         try:
-            logger.info(f"{log_context} 正在删除好友关系 ID: {target_tenancy_user_id}")
+            logger.info(f"正在删除好友关系 ID: {target_tenancy_user_id}")
             # 注意：虽然是删除操作，但根据用户提供的示例，使用的是 POST 请求
             async with session.post(url, json=payload, headers=self.headers, timeout=5) as response:
                 if response.status == 200:
-                    logger.info(f"{log_context} 删除好友成功")
+                    logger.info(f"删除好友成功")
                     return True
                 else:
                     text = await response.text()
-                    logger.error(f"{log_context} 删除好友失败: HTTP {response.status} - {text}")
+                    logger.error(f"删除好友失败: HTTP {response.status} - {text}")
                     return False
             
         except Exception as e:
-            logger.error(f"{log_context} 删除好友时发生异常: {e}")
+            logger.error(f"删除好友时发生异常: {e}")
             return False
 
-    async def request_friendship(self, session: aiohttp.ClientSession, target_tenancy_user_id: int, retry: bool = True, log_context: str = "") -> int:
+    async def request_friendship(self, session: aiohttp.ClientSession, target_tenancy_user_id: int, retry: bool = True) -> int:
         """
         发送好友请求
         :param session: aiohttp session
         :param target_tenancy_user_id: 目标用户的 tenancyUserId
         :param retry: 是否在 409 冲突时尝试删除并重试
-        :param log_context: 日志上下文前缀
         :return: HTTP 状态码 (200=成功, 400=被拉黑, 409=冲突, 0=异常/其他错误)
         """
         url = f"{self.BASE_URL}/shared/social/friends/request-friendship"
@@ -126,53 +124,52 @@ class HttpFriendManager:
         }
         
         try:
-            logger.info(f"{log_context} 正在发送好友请求给 ID: {target_tenancy_user_id}")
+            logger.info(f"正在发送好友请求给 ID: {target_tenancy_user_id}")
             async with session.post(url, json=payload, headers=self.headers, timeout=5) as response:
                 if response.status == 200:
-                    logger.info(f"{log_context} 好友请求发送成功")
+                    logger.info(f"好友请求发送成功")
                     return 200
                 elif response.status == 409:
                     if retry:
-                        logger.warning(f"{log_context} 好友请求冲突 (HTTP 409)，尝试删除好友并重试: {target_tenancy_user_id}")
+                        logger.warning(f"好友请求冲突 (HTTP 409)，尝试删除好友并重试: {target_tenancy_user_id}")
                         # 如果返回 409，尝试删除好友
-                        if await self.delete_friendship(session, target_tenancy_user_id, log_context):
-                            logger.info(f"{log_context} 删除好友成功，正在重新发送请求: {target_tenancy_user_id}")
+                        if await self.delete_friendship(session, target_tenancy_user_id):
+                            logger.info(f"删除好友成功，正在重新发送请求: {target_tenancy_user_id}")
                             # 递归调用，设置 retry=False 防止死循环
-                            return await self.request_friendship(session, target_tenancy_user_id, retry=False, log_context=log_context)
+                            return await self.request_friendship(session, target_tenancy_user_id, retry=False)
                         else:
-                            logger.error(f"{log_context} 删除好友失败，无法继续重试")
+                            logger.error(f"删除好友失败，无法继续重试")
                             return 409
                     else:
-                        logger.error(f"{log_context} 重试后仍然收到 409 冲突，放弃")
+                        logger.error(f"重试后仍然收到 409 冲突，放弃")
                         return 409
                 elif response.status == 400:
-                    logger.warning(f"{log_context} 好友请求失败: 被拉黑 (HTTP 400) - ID: {target_tenancy_user_id}")
+                    logger.warning(f"好友请求失败: 被拉黑 (HTTP 400) - ID: {target_tenancy_user_id}")
                     return 400
                 elif response.status == 404:
-                    logger.warning(f"{log_context} 好友请求失败: 未知 (HTTP 404) - ID: {target_tenancy_user_id}")
+                    logger.warning(f"好友请求失败: 未知 (HTTP 404) - ID: {target_tenancy_user_id}")
                     return 404
                 else:
                     text = await response.text()
-                    logger.error(f"{log_context} 好友请求发送失败: HTTP {response.status} - {text}")
+                    logger.error(f"好友请求发送失败: HTTP {response.status} - {text}")
                     return response.status
             
         except Exception as e:
-            logger.error(f"{log_context} 发送好友请求时发生异常: {e}")
+            logger.error(f"发送好友请求时发生异常: {e}")
             return 0
 
 # 便捷调用函数 (Async)
-async def add_friend_by_http_async(name_with_tag: str, auth_token: str, session: Optional[aiohttp.ClientSession] = None, log_context: str = "") -> int:
+async def add_friend_by_http_async(name_with_tag: str, auth_token: str, session: Optional[aiohttp.ClientSession] = None) -> int:
     """
     通过 HTTP 接口添加好友的完整流程 (Async)
     如果成功获取ID并发送请求，会调用 client.insert_data 上报数据
     :param name_with_tag: 用户名#Tag (e.g., "Player#1234")
     :param auth_token: 认证 Token
     :param session: 可选的 aiohttp session，如果提供则复用
-    :param log_context: 日志上下文前缀
     :return: HTTP 状态码
     """
     if '#' not in name_with_tag:
-        logger.error(f"{log_context} 用户名格式错误，应为 'Name#Tag'")
+        logger.error(f"用户名格式错误，应为 'Name#Tag'")
         return 0
         
     name, discriminator = name_with_tag.split('#', 1)
@@ -191,12 +188,12 @@ async def add_friend_by_http_async(name_with_tag: str, auth_token: str, session:
             client = ApiClient()
             # user_id is int, convert to str for database
             await client.update_data_async("arc_game", name_with_tag, str(user_id), "1", 50)
-            logger.info(f"{log_context} 已上报好友数据: {name_with_tag}, ID: {user_id}")
+            logger.info(f"已上报好友数据: {name_with_tag}, ID: {user_id}")
         except Exception as e:
-            logger.error(f"{log_context} 上报好友数据失败: {e}")
+            logger.error(f"上报好友数据失败: {e}")
 
         # 2. 发送好友请求
-        return await manager.request_friendship(sess, user_id, log_context=log_context)
+        return await manager.request_friendship(sess, user_id)
 
     if session:
         return await _execute(session)
@@ -204,38 +201,19 @@ async def add_friend_by_http_async(name_with_tag: str, auth_token: str, session:
         async with aiohttp.ClientSession() as new_session:
             return await _execute(new_session)
 
-async def add_friend_by_id_async(user_id: str, auth_token: str, session: Optional[aiohttp.ClientSession] = None, log_context: str = "") -> int:
+async def add_friend_by_id_async(user_id: str, auth_token: str, session: Optional[aiohttp.ClientSession] = None) -> int:
     """
     通过 HTTP 接口添加好友的完整流程 (Async)
     直接使用 ID 发送请求
     :param user_id: 目标用户ID (str or int)
     :param auth_token: 认证 Token
     :param session: 可选的 aiohttp session，如果提供则复用
-    :param log_context: 日志上下文前缀
     :return: HTTP 状态码
     """
     manager = HttpFriendManager(auth_token)
     
     if session:
-        return await manager.request_friendship(session, int(user_id), log_context=log_context)
+        return await manager.request_friendship(session, int(user_id))
     else:
         async with aiohttp.ClientSession() as new_session:
-            return await manager.request_friendship(new_session, int(user_id), log_context=log_context)
-
-# 兼容同步调用 (但不建议在高性能场景使用，每次都会创建 loop)
-def add_friend_by_http(name_with_tag: str, auth_token: str) -> bool:
-    try:
-        return asyncio.run(add_friend_by_http_async(name_with_tag, auth_token))
-    except Exception as e:
-        logger.error(f"同步调用异步函数失败: {e}")
-        return False
-
-if __name__ == "__main__":
-    # 测试用例 (使用用户提供的示例 Token，注意 Token 可能已过期)
-    test_token = "eyJhbGciOiJSUzI1NiIsImtpZCI6ImI4MDMxYTE0ZjBmZmFiMzRlNzA3N2I5OTA2Nzg5YTkzOWI3OGRjNWEiLCJraWRfdmVyc2lvbiI6IjE3MCIsInR5cCI6IkpXVCJ9.eyJhdWQiOlsiaHR0cHM6Ly9waW9uZWVyLmVtYmFyay5uZXQiXSwiZXhwIjoxNzY2OTM1NDkxLCJleHQiOnsiYXBwX2lkIjoiMTgwODUwMCIsImNsaWVudF9pZCI6ImVtYmFyay1waW9uZWVyIiwiY29tcGFueSI6IiIsImVtYmFya191c2VyX2lkIjoiNjc0MzU2OTc3NjcxMDIwNzM1MCIsImV4dF9wcm92aWRlcl9pZCI6OCwidGVuYW5jeV9pZCI6IjYzNjg0ODU1MjQwMTQxNDk2OTQiLCJ0ZW5hbmN5X25hbWUiOiJwaW9uZWVyLWxpdmUiLCJ0cHVpZCI6Ijc2NTYxMTk4OTk1Mzg2NTc1In0sImlhdCI6MTc2Njg0OTA5MSwiaXNzIjoiaHR0cHM6Ly9hdXRoLmVtYmFyay5uZXQvIiwianRpIjoiOTZkNzg5MTQtYzkyNy00MmQ2LTlmYTEtZDkwZDlhMTQ5MmNmIiwibmJmIjoxNzY2ODQ5MDkxLCJzY3AiOltdLCJzdWIiOiI2MDc0MzU2MzA2MzA3NjU4NTE2In0.q2Z3D5fcDoWmFJ2LvW993mC4ZZfIhljRILv3GvO8pIs_vY2XJbBn0TBFLE7B5gNwd-BkdWr5fuC1L8FwnzJjF1p344XB4zfBgItO9MPUKBT5-XYLMH4JxqlSW87_QvLQSMg54oAnyVzz2qErEBxFEasTuek8rrMATLOHpo5i5ek-Z1_4taOLkNu8PjhtI_pDfdVdRjp_oocNMiXperx7TCyth5_3f8tlAmC7JIZJONLV2r54bwKnIcAqs5ayf1EJ83dZdFMpBKdZdeVaE-jtKd0OV6kBuyC-RTWoyVTBtA__tZOt8IacBIv2sUYUohcy6RSRaCpbZivqb8Qvt3Osow"
-    
-    # 示例目标
-    test_target = "MMOEXPsellitem18#0342"
-    
-    print("开始测试 HTTP 接口...")
-    add_friend_by_http(test_target, test_token)
+            return await manager.request_friendship(new_session, int(user_id))
