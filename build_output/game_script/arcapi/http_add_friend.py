@@ -132,8 +132,10 @@ class HttpFriendManager:
                 elif response.status == 409:
                     if retry:
                         logger.warning(f"好友请求冲突 (HTTP 409)，尝试删除好友并重试: {target_tenancy_user_id}")
+                        # 如果返回 409，尝试删除好友
                         if await self.delete_friendship(session, target_tenancy_user_id):
                             logger.info(f"删除好友成功，正在重新发送请求: {target_tenancy_user_id}")
+                            # 递归调用，设置 retry=False 防止死循环
                             return await self.request_friendship(session, target_tenancy_user_id, retry=False)
                         else:
                             logger.error(f"删除好友失败，无法继续重试")
