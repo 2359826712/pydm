@@ -7,7 +7,7 @@ from api_client import ApiClient
 import multiprocessing
 import asyncio
 import aiohttp
-from http_add_friend import add_friend_by_http_async, add_friend_by_id_async
+from http_add_friend import add_friend_by_http_async, add_friend_by_id_async, get_stats
 import logging
 
 # 配置日志记录器
@@ -31,11 +31,12 @@ def worker(token):
 
     # 定义异步主循环
     async def async_worker_loop():
-        
+        pid = os.getpid()
         local_count = 0
         loop = asyncio.get_running_loop()
         background_tasks = set()
-        
+        bd_round=0
+        friend_items_num = 0
         # 包装任务以捕获异常
         async def run_add_task(coro):
             try:
@@ -69,6 +70,7 @@ def worker(token):
                         # 如果没查到数据，休眠一会再试
                         await asyncio.sleep(5)
                         await local_client.clear_talk_channel_async("arc_game", 1)
+                        friend_items_num = 0
                         continue
                     
                     # 2. 异步并发处理查询到的好友 (Fire-and-forget 模式)
@@ -98,6 +100,11 @@ def worker(token):
                             fixed_task = asyncio.create_task(run_add_task(fixed_coro))
                             background_tasks.add(fixed_task)
                             fixed_task.add_done_callback(background_tasks.discard)
+                    bd_round+=1
+                    friend_items_num = len(friend_items)+friend_items_num
+                    success, blocked = get_stats()
+                    print(f"{pid}已进行{bd_round}轮，已发送{local_count}次，正在进行添加{friend_items_num}个好友，成功{success}个，被拉黑{blocked}个")
+                    
 
                 except Exception as e:
                     print(f"Worker 进程异常: {e}")

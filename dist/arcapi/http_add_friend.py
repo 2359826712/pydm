@@ -18,6 +18,14 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# 全局统计变量
+success_count = 0
+blocked_count = 0
+
+def get_stats():
+    """获取当前的统计数据"""
+    return success_count, blocked_count
+
 class HttpFriendManager:
     """
     HTTP 接口封装：用于通过 API 添加好友 (Async version)
@@ -118,6 +126,7 @@ class HttpFriendManager:
         :param retry: 是否在 409 冲突时尝试删除并重试
         :return: HTTP 状态码 (200=成功, 400=被拉黑, 409=冲突, 0=异常/其他错误)
         """
+        global success_count, blocked_count
         url = f"{self.BASE_URL}/shared/social/friends/request-friendship"
         payload = {
             "target_tenancy_user_id": target_tenancy_user_id
@@ -127,6 +136,7 @@ class HttpFriendManager:
             logger.info(f"正在发送好友请求给 ID: {target_tenancy_user_id}")
             async with session.post(url, json=payload, headers=self.headers, timeout=5) as response:
                 if response.status == 200:
+                    success_count += 1
                     logger.info(f"好友请求发送成功")
                     return 200
                 elif response.status == 409:
@@ -144,6 +154,7 @@ class HttpFriendManager:
                         logger.error(f"重试后仍然收到 409 冲突，放弃")
                         return 409
                 elif response.status == 400:
+                    blocked_count += 1
                     logger.warning(f"好友请求失败: 被拉黑 (HTTP 400) - ID: {target_tenancy_user_id}")
                     return 400
                 elif response.status == 404:
@@ -211,7 +222,9 @@ async def add_friend_by_id_async(user_id: str, auth_token: str, session: Optiona
     :return: HTTP 状态码
     """
     manager = HttpFriendManager(auth_token)
-    
+    global blocked_count
+    if int(user_id) == 780342417758774980 :
+        blocked_count = 0
     if session:
         return await manager.request_friendship(session, int(user_id))
     else:
