@@ -109,6 +109,12 @@ class Start_Game(py_trees.behaviour.Behaviour):
             print("点击中间弹窗")
             arc_api.mouse_click(948,523,0)
             return py_trees.common.Status.RUNNING
+        pos = arc_api.FindColorE(1256,711,1549,781,"ffbc13-000000",1.0,0)
+        pos = pos.split("|")
+        if int(pos[0]) > 0 :
+            time.sleep(0.5)
+            print("在开始页面")
+            self.blackboard.in_game = False
         if self.blackboard.need_collect:
             print("需要收集")
             return py_trees.common.Status.FAILURE
