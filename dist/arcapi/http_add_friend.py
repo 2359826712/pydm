@@ -60,7 +60,7 @@ class HttpFriendManager:
         
         try:
             logger.info(f"正在查询用户: {name}#{discriminator}")
-            async with session.post(url, json=payload, headers=self.headers, timeout=5) as response:
+            async with session.post(url, json=payload, headers=self.headers, timeout=10) as response:
                 # 检查响应状态码
                 if response.status != 200:
                     text = await response.text()
@@ -79,7 +79,7 @@ class HttpFriendManager:
                     return None
                 
         except Exception as e:
-            logger.error(f"查询用户时发生异常: {e}")
+            logger.error(f"查询用户时发生异常 ({name}#{discriminator}): {e}")
             return None
 
     async def delete_friendship(self, session: aiohttp.ClientSession, target_tenancy_user_id: int) -> bool:

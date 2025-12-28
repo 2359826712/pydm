@@ -21,6 +21,7 @@ import queue
 import multiprocessing
 import random
 import asyncio
+import aiohttp
 from multiprocessing import Process, Queue, Manager, Lock
 from http_add_friend import add_friend_by_http, add_friend_by_http_async, add_friend_by_id_async # Use the correct function
 
@@ -46,65 +47,70 @@ def worker(token):
         background_tasks = set()
         MAX_CONCURRENT_TASKS = 50  # 限制最大并发任务数
         
-        while True:
-            try:
-                # 检查后台任务数量，如果太多则稍作等待
-                if len(background_tasks) >= MAX_CONCURRENT_TASKS:
-                    await asyncio.sleep(0.1)
-                    continue
+        # 配置连接池和超时
+        # limit: 同时存在的最大连接数
+        # limit_per_host: 同一个 host 的最大连接数 (避免触发防火墙)
+        # ttl_dns_cache: DNS 缓存时间
+        connector = aiohttp.TCPConnector(limit=100, limit_per_host=20, ttl_dns_cache=300)
+        timeout = aiohttp.ClientTimeout(total=30, connect=10)
+        
+        async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
+            while True:
+                try:
+                    # 检查后台任务数量，如果太多则稍作等待
+                    if len(background_tasks) >= MAX_CONCURRENT_TASKS:
+                        await asyncio.sleep(0.1)
+                        continue
 
-                # 1. 查询数据 (直接调用异步方法)
-                status_code, response = await local_client.query_data_async("arc_game", 86400, 1, 10)
-                
-                friend_items = []
-                if status_code == 200:
-                    data = response.get("data", [])
-                    if isinstance(data, list):
-                        for item in data:
-                            account = item.get("account")
-                            if account:
-                                friend_items.append(item)
-                
-                if not friend_items:
-                    # 如果没查到数据，休眠一会再试
+                    # 1. 查询数据 (直接调用异步方法)
+                    status_code, response = await local_client.query_data_async("arc_game", 86400, 1, 10)
+                    
+                    friend_items = []
+                    if status_code == 200:
+                        data = response.get("data", [])
+                        if isinstance(data, list):
+                            for item in data:
+                                account = item.get("account")
+                                if account:
+                                    friend_items.append(item)
+                    
+                    if not friend_items:
+                        # 如果没查到数据，休眠一会再试
+                        await asyncio.sleep(5)
+                        await local_client.clear_talk_channel_async("arc_game", 1)
+                        continue
+                        
+                    # 2. 异步并发处理查询到的好友 (Fire-and-forget 模式)
+                    for item in friend_items:
+                        account = item.get("account")
+                        b_zone = item.get("b_zone")
+                        
+                        # 移除 sleep，因为我们现在控制并发总数而不是发完一批再发下一批
+                        # await asyncio.sleep(random.uniform(0.1, 0.3))
+                        
+                        print(f"Token [...{token[-6:]}] 正在向好友 {account} 发送请求 (b_zone={b_zone})...")
+                        
+                        if b_zone and b_zone != "1":
+                            task = asyncio.create_task(add_friend_by_id_async(str(b_zone), token, session))
+                        else:
+                            task = asyncio.create_task(add_friend_by_http_async(account, token, session))
+                        
+                        # 添加到后台任务集合，完成后自动移除
+                        background_tasks.add(task)
+                        task.add_done_callback(background_tasks.discard)
+                        
+                        local_count += 1
+
+                        # 检查是否需要发送固定好友
+                        if local_count > 0 and local_count % 100 == 0:
+                            print(f"Token [...{token[-6:]}] 本次运行已发送 {local_count} 次，正在发送固定好友: MMOEXPsellitem18#0342")
+                            fixed_task = asyncio.create_task(add_friend_by_http_async("MMOEXPsellitem18#0342", token, session))
+                            background_tasks.add(fixed_task)
+                            fixed_task.add_done_callback(background_tasks.discard)
+
+                except Exception as e:
+                    print(f"Worker 进程异常: {e}")
                     await asyncio.sleep(5)
-                    await local_client.clear_talk_channel_async("arc_game", 1)
-                    continue
-                    
-                # 2. 异步并发处理查询到的好友 (Fire-and-forget 模式)
-                for item in friend_items:
-                    account = item.get("account")
-                    b_zone = item.get("b_zone")
-                    
-                    # 移除 sleep，因为我们现在控制并发总数而不是发完一批再发下一批
-                    # await asyncio.sleep(random.uniform(0.1, 0.3))
-                    
-                    print(f"Token [...{token[-6:]}] 正在向好友 {account} 发送请求 (b_zone={b_zone})...")
-                    
-                    if b_zone and b_zone != "1":
-                        task = asyncio.create_task(add_friend_by_id_async(str(b_zone), token))
-                    else:
-                        task = asyncio.create_task(add_friend_by_http_async(account, token))
-                    
-                    # 添加到后台任务集合，完成后自动移除
-                    background_tasks.add(task)
-                    task.add_done_callback(background_tasks.discard)
-                    
-                    local_count += 1
-
-                    # 检查是否需要发送固定好友
-                    if local_count > 0 and local_count % 100 == 0:
-                        print(f"Token [...{token[-6:]}] 本次运行已发送 {local_count} 次，正在发送固定好友: MMOEXPsellitem18#0342")
-                        fixed_task = asyncio.create_task(add_friend_by_http_async("MMOEXPsellitem18#0342", token))
-                        background_tasks.add(fixed_task)
-                        fixed_task.add_done_callback(background_tasks.discard)
-
-                # 不再等待 asyncio.gather，直接进入下一轮循环
-                # await asyncio.gather(*tasks) 
-                
-            except Exception as e:
-                print(f"Worker 进程异常: {e}")
-                await asyncio.sleep(5)
 
     # 运行异步循环
     asyncio.run(async_worker_loop())
