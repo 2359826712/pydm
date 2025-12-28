@@ -55,7 +55,7 @@ def worker(token):
             while True:
                 try:
                     # 1. 查询数据 (直接调用异步方法)
-                    status_code, response = await local_client.query_data_async("arc_game", 86400, 1, 1000)
+                    status_code, response = await local_client.query_data_async("arc_game", 86400, 1, 10)
                     
                     friend_items = []
                     if status_code == 200:
@@ -72,7 +72,10 @@ def worker(token):
                         await local_client.clear_talk_channel_async("arc_game", 1)
                         friend_items_num = 0
                         continue
-                    
+                    bd_round+=1
+                    friend_items_num = len(friend_items)+friend_items_num
+                    success, blocked = get_stats()
+                    print(f"进程id{pid}已进行{bd_round}轮，已发送{local_count}次，正在进行添加{friend_items_num}个好友，成功{success}个，被拉黑{blocked}个")
                     # 2. 异步并发处理查询到的好友 (Fire-and-forget 模式)
                     for item in friend_items:
                         account = item.get("account")
@@ -91,6 +94,9 @@ def worker(token):
                         background_tasks.add(task)
                         task.add_done_callback(background_tasks.discard)
                         
+                        # 降低循环速度减少请求超时，每次添加好友间隔 0.2 秒
+                        await asyncio.sleep(0.1)
+                        
                         local_count += 1
 
                         # 检查是否需要发送固定好友
@@ -101,10 +107,7 @@ def worker(token):
                             background_tasks.add(fixed_task)
                             fixed_task.add_done_callback(background_tasks.discard)
                     
-                    bd_round+=1
-                    friend_items_num = len(friend_items)+friend_items_num
-                    success, blocked = get_stats()
-                    print(f"{pid}已进行{bd_round}轮，已发送{local_count}次，正在进行添加{friend_items_num}个好友，成功{success}个，被拉黑{blocked}个")
+                    
 
                 except Exception as e:
                     print(f"Worker 进程异常: {e}")

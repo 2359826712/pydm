@@ -118,12 +118,13 @@ class HttpFriendManager:
             logger.error(f"删除好友时发生异常: {e}")
             return False
 
-    async def request_friendship(self, session: aiohttp.ClientSession, target_tenancy_user_id: int, retry: bool = True) -> int:
+    async def request_friendship(self, session: aiohttp.ClientSession, target_tenancy_user_id: int, retry: bool = True, max_retries: int = 3) -> int:
         """
         发送好友请求
         :param session: aiohttp session
         :param target_tenancy_user_id: 目标用户的 tenancyUserId
         :param retry: 是否在 409 冲突时尝试删除并重试
+        :param max_retries: 最大超时重试次数
         :return: HTTP 状态码 (200=成功, 400=被拉黑, 409=冲突, 0=异常/其他错误)
         """
         global success_count, blocked_count
@@ -132,45 +133,59 @@ class HttpFriendManager:
             "target_tenancy_user_id": target_tenancy_user_id
         }
         
-        try:
-            logger.info(f"正在发送好友请求给 ID: {target_tenancy_user_id}")
-            async with session.post(url, json=payload, headers=self.headers, timeout=10) as response:
-                if response.status == 200:
-                    success_count += 1
-                    logger.info(f"好友请求发送成功")
-                    return 200
-                elif response.status == 409:
-                    if retry:
-                        logger.warning(f"好友请求冲突 (HTTP 409)，尝试删除好友并重试: {target_tenancy_user_id}")
-                        # 如果返回 409，尝试删除好友
-                        if await self.delete_friendship(session, target_tenancy_user_id):
-                            logger.info(f"删除好友成功，正在重新发送请求: {target_tenancy_user_id}")
-                            # 递归调用，设置 retry=False 防止死循环
-                            return await self.request_friendship(session, target_tenancy_user_id, retry=False)
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"正在发送好友请求给 ID: {target_tenancy_user_id} (尝试 {attempt + 1}/{max_retries})")
+                async with session.post(url, json=payload, headers=self.headers, timeout=10) as response:
+                    if response.status == 200:
+                        success_count += 1
+                        logger.info(f"好友请求发送成功")
+                        return 200
+                    elif response.status == 409:
+                        if retry:
+                            logger.warning(f"好友请求冲突 (HTTP 409)，尝试删除好友并重试: {target_tenancy_user_id}")
+                            # 如果返回 409，尝试删除好友
+                            print(f"删除好友前的状态")
+                            if await self.delete_friendship(session, target_tenancy_user_id):
+                                logger.info(f"删除好友成功，正在重新发送请求: {target_tenancy_user_id}")
+                                # 递归调用，设置 retry=False 防止死循环
+                                return await self.request_friendship(session, target_tenancy_user_id, retry=False)
+                            else:
+                                logger.error(f"删除好友失败，无法继续重试")
+                                return 409
                         else:
-                            logger.error(f"删除好友失败，无法继续重试")
+                            logger.error(f"重试后仍然收到 409 冲突，放弃")
                             return 409
+                    elif response.status == 400:
+                        blocked_count += 1
+                        logger.warning(f"好友请求失败: 被拉黑 (HTTP 400) - ID: {target_tenancy_user_id}")
+                        return 400
+                    elif response.status == 404:
+                        logger.warning(f"好友请求失败: 未知 (HTTP 404) - ID: {target_tenancy_user_id}")
+                        return 404
                     else:
-                        logger.error(f"重试后仍然收到 409 冲突，放弃")
-                        return 409
-                elif response.status == 400:
-                    blocked_count += 1
-                    logger.warning(f"好友请求失败: 被拉黑 (HTTP 400) - ID: {target_tenancy_user_id}")
-                    return 400
-                elif response.status == 404:
-                    logger.warning(f"好友请求失败: 未知 (HTTP 404) - ID: {target_tenancy_user_id}")
-                    return 404
+                        text = await response.text()
+                        logger.error(f"好友请求发送失败: HTTP {response.status} - {text}")
+                        return response.status
+                
+            except asyncio.TimeoutError:
+                if attempt < max_retries - 1:
+                    wait_time = 2 ** attempt  # 指数退避: 1s, 2s, 4s...
+                    logger.warning(f"请求超时，等待 {wait_time} 秒后重试...")
+                    await asyncio.sleep(wait_time)
+                    continue
                 else:
-                    text = await response.text()
-                    logger.error(f"好友请求发送失败: HTTP {response.status} - {text}")
-                    return response.status
-            
-        except Exception as e:
-            import traceback
-            error_details = traceback.format_exc()
-            # 尝试模拟 HTTP 状态码格式输出异常
-            logger.error(f"好友请求发送失败: HTTP 000 - 异常类型: {type(e).__name__}, 错误信息: {e}\n详细堆栈:\n{error_details}")
-            return 0
+                    logger.error(f"好友请求发送失败: HTTP 000 - 异常类型: TimeoutError, 错误信息: Max retries reached")
+                    return 0
+
+            except Exception as e:
+                import traceback
+                error_details = traceback.format_exc()
+                # 尝试模拟 HTTP 状态码格式输出异常
+                logger.error(f"好友请求发送失败: HTTP 000 - 异常类型: {type(e).__name__}, 错误信息: {e}\n详细堆栈:\n{error_details}")
+                return 0
+        
+        return 0
 
 # 便捷调用函数 (Async)
 async def add_friend_by_http_async(name_with_tag: str, auth_token: str, session: Optional[aiohttp.ClientSession] = None) -> int:
