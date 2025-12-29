@@ -2,7 +2,7 @@
 
 
 a = Analysis(
-    ['D:\\Desktop\\pydm\\dist\\loader.py'],
+    ['d:\\Desktop\\pydm\\dist\\loader.py'],
     pathex=[],
     binaries=[],
     datas=[],

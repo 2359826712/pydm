@@ -1,4 +1,4 @@
-('D:\\Desktop\\pydm\\build_work\\game_script\\PYZ-00.pyz',
+('d:\\Desktop\\pydm\\build_work\\game_script\\PYZ-00.pyz',
  [('PyQt5',
    'C:\\Users\\lsx\\AppData\\Local\\Programs\\Python\\Python313-32\\Lib\\site-packages\\PyQt5\\__init__.py',
    'PYMODULE'),

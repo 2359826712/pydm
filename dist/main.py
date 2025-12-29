@@ -15,14 +15,14 @@ sys.path.append(f"{script_dir}\\pic")
 from arcapi import Arc_api
 import py_trees
 from action.mission import main_tree
-arc_api = Arc_api()
-arc_api.init_data()
 import traceback
 import time
 import multiprocessing
 
 if __name__ == "__main__":
     multiprocessing.freeze_support()
+    arc_api = Arc_api()
+    arc_api.init_data()
     blackboard = py_trees.blackboard.Blackboard()
     blackboard.set("bind_windows",False)
     blackboard.set("in_game",False)

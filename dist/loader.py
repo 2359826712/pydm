@@ -61,53 +61,59 @@ def run_main_script():
         input("按回车键退出...")
 
 if __name__ == "__main__":
-    ocr_exe_path = os.path.join(BASE_PATH, "ocr_server.exe")
-    alt_path = os.path.join(BASE_PATH, "ocr_server.exe")
-    if os.path.exists(alt_path):
-        ocr_exe_path = alt_path
-    
-    if os.path.exists(ocr_exe_path):
-        print(f"正在启动 OCR 服务: {ocr_exe_path} ...")
-        try:
-            # 启动 OCR 服务，不显示窗口 (CREATE_NO_WINDOW=0x08000000)
-            if os.name == 'nt':
-                process = subprocess.Popen([ocr_exe_path], creationflags=0x08000000)
-            else:
-                process = subprocess.Popen([ocr_exe_path])
-            
-            # 注册退出时的清理函数
-            def kill_ocr():
-                try:
-                    print("关闭 OCR 服务...")
-                    process.terminate()
-                except:
-                    pass
-            atexit.register(kill_ocr)
-            
-            # 健康检查
-            if requests:
-                print("等待 OCR 服务启动...", end="", flush=True)
-                ocr_ready = False
-                for _ in range(10): # 尝试 10 次，每次 1 秒
+    import multiprocessing
+    is_main_process = multiprocessing.current_process().name == "MainProcess"
+    if is_main_process:
+        ocr_exe_path = os.path.join(BASE_PATH, "ocr_server.exe")
+        alt_path = os.path.join(BASE_PATH, "ocr_server.exe")
+        if os.path.exists(alt_path):
+            ocr_exe_path = alt_path
+        
+        if os.path.exists(ocr_exe_path):
+            print(f"正在启动 OCR 服务: {ocr_exe_path} ...")
+            try:
+                # 启动 OCR 服务，不显示窗口 (CREATE_NO_WINDOW=0x08000000)
+                if os.name == 'nt':
+                    process = subprocess.Popen([ocr_exe_path], creationflags=0x08000000)
+                else:
+                    process = subprocess.Popen([ocr_exe_path])
+                
+                # 注册退出时的清理函数
+                def kill_ocr():
                     try:
-                        r = requests.get("http://127.0.0.1:5000/ping", timeout=1)
-                        if r.status_code == 200:
-                            ocr_ready = True
-                            print(" 成功!")
-                            break
+                        print("关闭 OCR 服务...")
+                        process.terminate()
                     except:
                         pass
-                    print(".", end="", flush=True)
-                    time.sleep(1)
+                atexit.register(kill_ocr)
                 
-                if not ocr_ready:
-                    print("\n警告: OCR 服务启动超时，可能无法使用 OCR 功能。")
-            else:
-                print("\n提示: 缺少 requests 库，跳过 OCR 服务健康检查。")
-                
-        except Exception as e:
-            print(f"\n启动 OCR 服务失败: {e}")
-    else:
-        print(f"警告: 未找到 {ocr_exe_path}，OCR 功能将不可用")
+                # 健康检查
+                if requests:
+                    print("等待 OCR 服务启动...", end="", flush=True)
+                    ocr_ready = False
+                    for _ in range(10): # 尝试 10 次，每次 1 秒
+                        try:
+                            r = requests.get("http://127.0.0.1:5000/ping", timeout=1)
+                            if r.status_code == 200:
+                                ocr_ready = True
+                                print(" 成功!")
+                                break
+                        except:
+                            pass
+                        print(".", end="", flush=True)
+                        time.sleep(1)
+                    
+                    if not ocr_ready:
+                        print("\n警告: OCR 服务启动超时，可能无法使用 OCR 功能。")
+                else:
+                    print("\n提示: 缺少 requests 库，跳过 OCR 服务健康检查。")
+                    
+            except Exception as e:
+                print(f"\n启动 OCR 服务失败: {e}")
+        else:
+            print(f"警告: 未找到 {ocr_exe_path}，OCR 功能将不可用")
         
-    run_main_script()
+        run_main_script()
+    else:
+        # 子进程：不重复启动 OCR，也不重复执行主脚本
+        pass
