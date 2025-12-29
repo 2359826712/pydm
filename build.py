@@ -42,13 +42,7 @@ def build():
     output_dir = os.path.join(project_dir, 'build_output')
     exe_dir = os.path.join(output_dir, 'game_script')
     loader_path = os.path.join(src_dir, 'loader.py')
-    exe_bin = os.path.join(exe_dir, 'game_script.exe')
     need_build = True
-    if os.path.exists(loader_path) and os.path.exists(exe_bin):
-        try:
-            need_build = os.path.getmtime(loader_path) > os.path.getmtime(exe_bin)
-        except Exception:
-            need_build = True
     kill_process_by_name("game_script")
     time.sleep(1)
     if need_build:
@@ -77,11 +71,11 @@ def build():
             '--hidden-import=py_trees',
             '--hidden-import=functools',
             '--hidden-import=traceback',
-            '--hidden-import=pyperclip',
             '--hidden-import=win32process',
             '--hidden-import=pythoncom',
             '--hidden-import=requests',
             '--hidden-import=pyautogui',
+            '--hidden-import=pyperclip',
             '--hidden-import=concurrent.futures',
             '--hidden-import=aiohttp',
             '--hidden-import=asyncio',

@@ -75,7 +75,7 @@ class Arc_api:
         dm.SetMouseDelay("normal",30)
         dm.SetKeypadDelay("normal",30)
         dm.SetMouseSpeed(6)
-        
+        dm.SetShowErrorMsg(0)
         # 设置 pic 目录
         script_dir = os.path.dirname(os.path.abspath(__file__))
         pic_dir = os.path.abspath(os.path.join(script_dir, "..", "pic"))
@@ -250,19 +250,7 @@ class Arc_api:
     def GetClientSize(self,hwnd,width=0,height=0):
         ret = dm.GetClientSize(hwnd,width,height)
         return ret
-
-    # def type_text(self, text):
-    #     for ch in text:
-    #         if 'A' <= ch <= 'Z':
-    #             dm.KeyDown(160)
-    #             dm.KeyDownChar(ch.lower())
-    #             time.sleep(0.05)
-    #             dm.KeyUpChar(ch.lower())
-    #             dm.KeyUp(160)
-    #         else:
-    #             dm.KeyDownChar(ch)
-    #             time.sleep(0.05)
-    #             dm.KeyUpChar(ch)
+        
     def get_script_config(self, getpath):
         config_path = f"{getpath}\\ggc.ini"
         if os.path.exists(config_path):
@@ -291,7 +279,109 @@ class Arc_api:
         pyautogui.hotkey('ctrl', 'a')
         time.sleep(0.1)
         pyautogui.hotkey('ctrl', 'v')
+    def select_mode(self):
+        """读取 select_mode.txt 中的 model 值"""
+        try:
+            if getattr(sys, 'frozen', False):
+                 # exe 模式
+                 file_path = os.path.join(os.path.dirname(sys.executable), "select_mode.txt")
+            else:
+                 # 源码模式
+                 script_dir = os.path.dirname(os.path.abspath(__file__))
+                 file_path = os.path.abspath(os.path.join(script_dir, "..", "select_mode.txt"))
+            
+            if not os.path.exists(file_path):
+                print(f"配置文件不存在: {file_path}")
+                return None
+                
+            with open(file_path, 'r', encoding='utf-8') as f:
+                for line in f:
+                    if "model" in line and "=" in line:
+                        parts = line.split('=')
+                        if len(parts) > 1:
+                            return parts[1].strip()
+            return None
+        except Exception as e:
+            print(f"读取配置文件失败: {e}")
+            return None
 
+    def get_tokens(self):
+        """读取 select_mode.txt 中的 token 值"""
+        try:
+            if getattr(sys, 'frozen', False):
+                 # exe 模式
+                 file_path = os.path.join(os.path.dirname(sys.executable), "select_mode.txt")
+            else:
+                 # 源码模式
+                 script_dir = os.path.dirname(os.path.abspath(__file__))
+                 file_path = os.path.abspath(os.path.join(script_dir, "..", "select_mode.txt"))
+            
+            if not os.path.exists(file_path):
+                print(f"配置文件不存在: {file_path}")
+                return []
+                
+            # Check modification time to avoid frequent reads and logging
+            mtime = os.path.getmtime(file_path)
+            if hasattr(self, '_last_token_mtime') and self._last_token_mtime == mtime and hasattr(self, '_cached_tokens'):
+                return self._cached_tokens
+
+            tokens = []
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+                
+            # 按行处理，支持多行 token 定义 (token = { ... | ... })
+            lines = content.splitlines()
+            full_token_str = ""
+            found_token = False
+            
+            for line in lines:
+                stripped_line = line.strip()
+                if not found_token:
+                    if "token" in stripped_line and "=" in stripped_line:
+                        found_token = True
+                        full_token_str += stripped_line
+                else:
+                    full_token_str += stripped_line
+                
+                # 如果已经找到 token 且当前行包含 }，则视为结束
+                if found_token and "}" in stripped_line:
+                    break
+            
+            if full_token_str:
+                parts = full_token_str.split('=', 1)
+                if len(parts) > 1:
+                    raw_value = parts[1].strip()
+                    
+                    # 移除外层的括号
+                    raw_value = raw_value.strip().strip('{}[]').strip()
+                    
+                    # 尝试分割
+                    if '|' in raw_value:
+                        raw_tokens = raw_value.split('|')
+                    elif ',' in raw_value:
+                            # 兼容逗号分割
+                            raw_tokens = raw_value.split(',')
+                    else:
+                            raw_tokens = [raw_value]
+                            
+                    for t in raw_tokens:
+                        # 清理多余的标点符号
+                        clean_t = t.strip().strip('{}[]"\'').strip()
+                        if clean_t and len(clean_t) > 20: # 简单的长度过滤，避免读取到空字符串或垃圾字符
+                            tokens.append(clean_t)
+            
+            # 去重
+            tokens = list(set(tokens))
+            
+            # Update cache
+            self._last_token_mtime = mtime
+            self._cached_tokens = tokens
+            
+            print(f"成功读取到 {len(tokens)} 个 Token")
+            return tokens
+        except Exception as e:
+            print(f"读取Token失败: {e}")
+            return []
     def clear_epic_login_data(self):
         """清除 Epic 账号登录缓存"""
         print("正在清除 Epic 账号记录...")
