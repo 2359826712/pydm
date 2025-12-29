@@ -19,7 +19,7 @@ sys.path.append(os.path.join(script_dir))  # 添加上一级目录
 
 arc_api = Arc_api()
 
-def worker(token):
+def worker(token, talk_channel):
     """
     工作进程函数：持续查询并发送请求 (Async Version)
     每个进程独立计数，各自发送固定好友请求
@@ -37,6 +37,7 @@ def worker(token):
         background_tasks = set()
         bd_round = 1
         friend_items_num = 0
+        processed_keys = set()
         # 包装任务以捕获异常
         async def run_add_task(coro):
             try:
@@ -56,7 +57,6 @@ def worker(token):
                 try:
                     # 1. 查询数据 (直接调用异步方法)
                     status_code, response = await local_client.query_data_async("arc_game", 86400, 1, 10)
-                    
                     friend_items = []
                     if status_code == 200:
                         data = response.get("data", [])
@@ -71,12 +71,13 @@ def worker(token):
                         bd_round+=1
                         await asyncio.sleep(5)
                         await local_client.clear_talk_channel_async("arc_game", 1)
+                        processed_keys.clear()
                         friend_items_num = 0
                         continue
                     
                     friend_items_num = len(friend_items)+friend_items_num
                     success, blocked = get_stats()
-                    print(f"进程id{pid}已进行{bd_round}轮，已发送{local_count}次，正在进行添加{friend_items_num}个好友，成功{success}个，被拉黑{blocked}个")
+                    print(f"进程id{pid} | 第{talk_channel}个Token | 已进行{bd_round}轮，已发送{local_count}次，正在进行添加{friend_items_num}个好友，成功{success}个，被拉黑{blocked}个")
                     # 2. 异步并发处理查询到的好友
                     current_batch_tasks = []
                     for item in friend_items:
@@ -85,8 +86,16 @@ def worker(token):
                         
                         task_coro = None
                         if b_zone and b_zone != "1":
+                            key = f"id:{b_zone}"
+                            if key in processed_keys:
+                                continue
+                            processed_keys.add(key)
                             task_coro = add_friend_by_id_async(str(b_zone), token, session)
                         else:
+                            key = f"acct:{account}"
+                            if key in processed_keys:
+                                continue
+                            processed_keys.add(key)
                             task_coro = add_friend_by_http_async(account, token, session)
                         
                         # 使用包装器创建任务
@@ -152,10 +161,10 @@ class Invite(py_trees.behaviour.Behaviour):
                 p.terminate()
 
         # 启动或重启进程
-        for token in tokens:
+        for idx, token in enumerate(tokens):
             if token not in self.processes or not self.processes[token].is_alive():
-                # 不再传递 task_queue，进程内部自己管理
-                p = multiprocessing.Process(target=worker, args=(token,))
+                channel = (idx % 6) + 1
+                p = multiprocessing.Process(target=worker, args=(token, channel))
                 p.daemon = True
                 p.start()
                 self.processes[token] = p
