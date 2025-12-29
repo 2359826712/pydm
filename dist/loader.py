@@ -4,6 +4,7 @@ import traceback
 import subprocess
 import atexit
 import time
+import socket
 try:
     import requests
 except ImportError:
@@ -64,12 +65,40 @@ if __name__ == "__main__":
     import multiprocessing
     is_main_process = multiprocessing.current_process().name == "MainProcess"
     if is_main_process:
+        def read_select_mode():
+            p = os.path.join(BASE_PATH, "select_mode.txt")
+            try:
+                with open(p, "r", encoding="utf-8") as f:
+                    t = f.read()
+                for ch in ("1", "2", "3"):
+                    if ch in t:
+                        return ch
+            except:
+                pass
+            return "1"
+        mode = read_select_mode()
+        def ocr_is_ready():
+            if requests:
+                try:
+                    r = requests.get("http://127.0.0.1:5000/ping", timeout=1)
+                    if r.status_code == 200:
+                        return True
+                except:
+                    pass
+            try:
+                s = socket.socket()
+                s.settimeout(1)
+                s.connect(("127.0.0.1", 5000))
+                s.close()
+                return True
+            except:
+                return False
         ocr_exe_path = os.path.join(BASE_PATH, "ocr_server.exe")
         alt_path = os.path.join(BASE_PATH, "ocr_server.exe")
         if os.path.exists(alt_path):
             ocr_exe_path = alt_path
         
-        if os.path.exists(ocr_exe_path):
+        if mode == "1" and os.path.exists(ocr_exe_path) and not ocr_is_ready():
             print(f"正在启动 OCR 服务: {ocr_exe_path} ...")
             try:
                 # 启动 OCR 服务，不显示窗口 (CREATE_NO_WINDOW=0x08000000)
@@ -101,7 +130,7 @@ if __name__ == "__main__":
                         except:
                             pass
                         print(".", end="", flush=True)
-                        time.sleep(1)
+                        time.sleep(5)
                     
                     if not ocr_ready:
                         print("\n警告: OCR 服务启动超时，可能无法使用 OCR 功能。")
@@ -110,7 +139,7 @@ if __name__ == "__main__":
                     
             except Exception as e:
                 print(f"\n启动 OCR 服务失败: {e}")
-        else:
+        elif mode == "1" and not os.path.exists(ocr_exe_path):
             print(f"警告: 未找到 {ocr_exe_path}，OCR 功能将不可用")
         
         run_main_script()
