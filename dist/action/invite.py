@@ -157,6 +157,14 @@ class Invite(py_trees.behaviour.Behaviour):
             
         # 每次 update 都重新读取 Token，支持运行时修改配置文件
         tokens = arc_api.get_tokens()
+        tokens = [t.strip() for t in tokens if t and t.strip()]
+        _seen = set()
+        _unique_tokens = []
+        for _t in tokens:
+            if _t not in _seen:
+                _seen.add(_t)
+                _unique_tokens.append(_t)
+        tokens = _unique_tokens
         if not tokens:
             print("未找到有效 Token，请检查 select_mode.txt")
             time.sleep(5)
@@ -174,14 +182,27 @@ class Invite(py_trees.behaviour.Behaviour):
 
         # 启动或重启进程
         for idx, token in enumerate(tokens):
-            if token not in self.processes or not self.processes[token].is_alive():
-                channel = (idx % 6) + 1
-                # 只有模式 3 启用跨进程去重
-                use_sync = (mode == "3")
+            channel = (idx % 6) + 1
+            use_sync = (mode == "3")
+            if token not in self.processes:
                 p = multiprocessing.Process(target=worker, args=(token, channel, self.claimed_map, self.claimed_lock, use_sync))
                 p.daemon = True
                 p.start()
                 self.processes[token] = p
+            else:
+                p = self.processes[token]
+                # 仅当进程已结束（exitcode 不为 None）时才重启，避免刚启动时 is_alive() 为 False 的竞态
+                if not p.is_alive() and p.exitcode is not None:
+                    p = multiprocessing.Process(target=worker, args=(token, channel, self.claimed_map, self.claimed_lock, use_sync))
+                    p.daemon = True
+                    p.start()
+                    self.processes[token] = p
+        # 打印当前进程信息以便诊断
+        try:
+            info = [f"{tok}=>pid:{self.processes[tok].pid}" for tok in self.processes]
+            print(f"当前已启动子进程数: {len(self.processes)} | {', '.join(info)}")
+        except Exception:
+            pass
 
         # 主线程不再负责查询和分发任务，只负责维护进程
         return py_trees.common.Status.RUNNING
