@@ -1,2 +1,2 @@
-dist/ocr_server.exe filter=lfs diff=lfs merge=lfs -text
 build_output/game_script/ocr_server.exe filter=lfs diff=lfs merge=lfs -text
+dist/ocr_server.exe filter=lfs diff=lfs merge=lfs -text
