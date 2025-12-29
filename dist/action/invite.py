@@ -35,7 +35,7 @@ def worker(token):
         local_count = 0
         loop = asyncio.get_running_loop()
         background_tasks = set()
-        bd_round=0
+        bd_round = 1
         friend_items_num = 0
         # 包装任务以捕获异常
         async def run_add_task(coro):
@@ -65,18 +65,19 @@ def worker(token):
                                 account = item.get("account")
                                 if account:
                                     friend_items.append(item)
-                    
+                
                     if not friend_items:
+                        bd_round += 1
                         # 如果没查到数据，休眠一会再试
                         await asyncio.sleep(5)
                         await local_client.clear_talk_channel_async("arc_game", 1)
                         friend_items_num = 0
                         continue
-                    bd_round+=1
                     friend_items_num = len(friend_items)+friend_items_num
                     success, blocked = get_stats()
                     print(f"进程id{pid}已进行{bd_round}轮，已发送{local_count}次，正在进行添加{friend_items_num}个好友，成功{success}个，被拉黑{blocked}个")
-                    # 2. 异步并发处理查询到的好友 (Fire-and-forget 模式)
+                    # 2. 异步并发处理查询到的好友
+                    current_batch_tasks = []
                     for item in friend_items:
                         account = item.get("account")
                         b_zone = item.get("b_zone")
@@ -89,8 +90,9 @@ def worker(token):
                         
                         # 使用包装器创建任务
                         task = asyncio.create_task(run_add_task(task_coro))
+                        current_batch_tasks.append(task)
                         
-                        # 添加到后台任务集合，完成后自动移除
+                        # 添加到后台任务集合 (为了防止被 GC，虽然等待它们完成，但保留引用是个好习惯)
                         background_tasks.add(task)
                         task.add_done_callback(background_tasks.discard)
                         
@@ -106,6 +108,11 @@ def worker(token):
                             fixed_task = asyncio.create_task(run_add_task(fixed_coro))
                             background_tasks.add(fixed_task)
                             fixed_task.add_done_callback(background_tasks.discard)
+                            current_batch_tasks.append(fixed_task)
+                    
+                    # 等待本批次所有任务完成
+                    if current_batch_tasks:
+                        await asyncio.gather(*current_batch_tasks)
                     
                     
 

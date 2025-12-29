@@ -56,6 +56,16 @@ class Start_Game(py_trees.behaviour.Behaviour):
             logger.error(f"保存缓存失败: {e}")
 
     def update(self) -> py_trees.common.Status:
+        token_file_path = os.path.join(script_dir, "token.txt")
+        if not os.path.exists(token_file_path):
+            token = arc_api.game_manager.get_jwt_token()
+            if token:
+                try:
+                    with open(token_file_path, "w", encoding="utf-8") as f:
+                        f.write(token)
+                    print(f"Token 已写入: {token_file_path}")
+                except Exception as e:
+                    logger.error(f"写入 Token 文件失败: {e}")
         if not self.blackboard.create_collect:
             code, resp = client.create_new_game("arc_game")
             if code == 200:
@@ -126,16 +136,7 @@ class Start_Game(py_trees.behaviour.Behaviour):
             print("初始化dll")
             return py_trees.common.Status.FAILURE
         
-        token_file_path = os.path.join(script_dir, "token.txt")
-        if not os.path.exists(token_file_path):
-            token = arc_api.game_manager.get_jwt_token()
-            if token:
-                try:
-                    with open(token_file_path, "w", encoding="utf-8") as f:
-                        f.write(token)
-                    print(f"Token 已写入: {token_file_path}")
-                except Exception as e:
-                    logger.error(f"写入 Token 文件失败: {e}")
+        
         friend_pos = arc_api.FindPic(0,0,1413,181,"friend.bmp","000000",1.0,0)
         if int(friend_pos[1]) > 0 :
             print("找到添加好友")
