@@ -18,7 +18,7 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(script_dir))  # 添加上一级目录
 
 arc_api = Arc_api()
-
+channel = arc_api.get_channel()
 def worker(token, talk_channel, claimed_map, claimed_lock, use_sync):
     """
     工作进程函数：持续查询并发送请求 (Async Version)
@@ -55,7 +55,7 @@ def worker(token, talk_channel, claimed_map, claimed_lock, use_sync):
             while True:
                 try:
                     # 1. 查询数据 (直接调用异步方法)
-                    status_code, response = await local_client.query_data_async("arc_game", 86400, 1, 10)
+                    status_code, response = await local_client.query_data_async("arc_game", 86400, channel, 10)
                     friend_items = []
                     if status_code == 200:
                         data = response.get("data", [])
@@ -69,7 +69,7 @@ def worker(token, talk_channel, claimed_map, claimed_lock, use_sync):
                         # 如果没查到数据，休眠一会再试
                         bd_round+=1
                         await asyncio.sleep(5)
-                        await local_client.clear_talk_channel_async("arc_game", 1)
+                        await local_client.clear_talk_channel_async("arc_game", channel)
                         if use_sync:
                             with claimed_lock:
                                 claimed_map.clear()
@@ -78,7 +78,7 @@ def worker(token, talk_channel, claimed_map, claimed_lock, use_sync):
                     
                     friend_items_num = len(friend_items)+friend_items_num
                     success, blocked = get_stats()
-                    print(f"进程id{pid} | 第{talk_channel}个Token | 已进行{bd_round}轮，已发送{local_count}次，正在进行添加{friend_items_num}个好友，成功{success}个，被拉黑{blocked}个")
+                    print(f"进程id{pid} | 第{talk_channel}个Token |第{channel}个频道| 已进行{bd_round}轮，已发送{local_count}次，正在进行添加{friend_items_num}个好友，成功{success}个，被拉黑{blocked}个")
                     # 2. 异步并发处理查询到的好友
                     current_batch_tasks = []
                     for item in friend_items:

@@ -304,6 +304,30 @@ class Arc_api:
         except Exception as e:
             print(f"读取配置文件失败: {e}")
             return None
+    def get_channel(self):
+        try:
+            if getattr(sys, 'frozen', False):
+                file_path = os.path.join(os.path.dirname(sys.executable), "select_mode.txt")
+            else:
+                script_dir = os.path.dirname(os.path.abspath(__file__))
+                file_path = os.path.abspath(os.path.join(script_dir, "..", "select_mode.txt"))
+            if not os.path.exists(file_path):
+                return None
+            with open(file_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    if "channel" in line and "=" in line:
+                        parts = line.split("=", 1)
+                        if len(parts) > 1:
+                            v = parts[1].strip()
+                            try:
+                                n = int(v)
+                                if 1 <= n <= 6:
+                                    return n
+                            except Exception:
+                                pass
+            return None
+        except Exception:
+            return None
 
     def get_tokens(self):
         """读取 select_mode.txt 中的 token 值"""
@@ -429,7 +453,7 @@ class Arc_api:
         
         print("Epic 账号记录清理完成")
 
-    def ocr_text(self, x1, y1, x2, y2, target_text=""):
+    def ocr_text(self, x1, y1, x2, y2, target_text="",timeout=3):
         """
         截图并调用本地 OCR 服务进行识别 (不保存图片文件)
         :param x1: 左上角 x
@@ -464,7 +488,7 @@ class Arc_api:
             
             # 发送请求
             try:
-                response = requests.post(url, json=payload, timeout=3)
+                response = requests.post(url, json=payload, timeout = timeout)
                 if response.status_code == 200:
                     res_json = response.json()
                     if res_json.get("code") == 0:
@@ -483,8 +507,8 @@ class Arc_api:
             print(f"OCR 调用异常: {e}")
             return None
 
-    def ocr_recognize(self, x1, y1, x2, y2, target_text=""):
-        data = self.ocr_text(x1, y1, x2, y2, target_text=target_text)
+    def ocr_recognize(self, x1, y1, x2, y2, target_text="",timeout=3):
+        data = self.ocr_text(x1, y1, x2, y2, target_text=target_text,timeout=timeout)
         if not data:
             return None
         def _rect_from_box(box):

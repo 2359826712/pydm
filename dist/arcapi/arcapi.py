@@ -20,7 +20,6 @@ if is_64bits:
     print("警告: 检测到当前 Python 为 64 位环境。")
     print("大漠插件 (dm.dll) 通常为 32 位，无法直接在 64 位 Python 中加载。")
     print("请切换到 32 位 Python 环境运行此脚本。")
-print("333333333")
 try:
     dm = win32com.client.Dispatch('dm.dmsoft')
 except Exception:
@@ -304,6 +303,30 @@ class Arc_api:
             return None
         except Exception as e:
             print(f"读取配置文件失败: {e}")
+            return None
+    def get_channel(self):
+        try:
+            if getattr(sys, 'frozen', False):
+                file_path = os.path.join(os.path.dirname(sys.executable), "select_mode.txt")
+            else:
+                script_dir = os.path.dirname(os.path.abspath(__file__))
+                file_path = os.path.abspath(os.path.join(script_dir, "..", "select_mode.txt"))
+            if not os.path.exists(file_path):
+                return None
+            with open(file_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    if "channel" in line and "=" in line:
+                        parts = line.split("=", 1)
+                        if len(parts) > 1:
+                            v = parts[1].strip()
+                            try:
+                                n = int(v)
+                                if 1 <= n <= 6:
+                                    return n
+                            except Exception:
+                                pass
+            return None
+        except Exception:
             return None
 
     def get_tokens(self):
