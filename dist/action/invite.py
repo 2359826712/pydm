@@ -65,14 +65,15 @@ def worker(token):
                                 account = item.get("account")
                                 if account:
                                     friend_items.append(item)
-                
+                    
                     if not friend_items:
-                        bd_round += 1
                         # 如果没查到数据，休眠一会再试
+                        bd_round+=1
                         await asyncio.sleep(5)
                         await local_client.clear_talk_channel_async("arc_game", 1)
                         friend_items_num = 0
                         continue
+                    
                     friend_items_num = len(friend_items)+friend_items_num
                     success, blocked = get_stats()
                     print(f"进程id{pid}已进行{bd_round}轮，已发送{local_count}次，正在进行添加{friend_items_num}个好友，成功{success}个，被拉黑{blocked}个")
