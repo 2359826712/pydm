@@ -20,7 +20,6 @@ if is_64bits:
     print("警告: 检测到当前 Python 为 64 位环境。")
     print("大漠插件 (dm.dll) 通常为 32 位，无法直接在 64 位 Python 中加载。")
     print("请切换到 32 位 Python 环境运行此脚本。")
-print("333333333")
 try:
     dm = win32com.client.Dispatch('dm.dmsoft')
 except Exception:
