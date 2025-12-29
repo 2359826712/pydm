@@ -28,7 +28,7 @@ def run_main_script():
     
     if not os.path.exists(script_path):
         print(f"错误: 找不到入口文件 {script_path}")
-        print(f"请确保 dist 文件夹位于: {BASE_PATH}")
+        print(f"请确保 main.py 文件夹位于: {BASE_PATH}")
         input("按回车键退出...")
         return
 

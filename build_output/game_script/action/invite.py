@@ -197,6 +197,12 @@ class Invite(py_trees.behaviour.Behaviour):
                     p.daemon = True
                     p.start()
                     self.processes[token] = p
+        # 打印当前进程信息以便诊断
+        try:
+            info = [f"{tok}=>pid:{self.processes[tok].pid}" for tok in self.processes]
+            print(f"当前已启动子进程数: {len(self.processes)} | {', '.join(info)}")
+        except Exception:
+            pass
 
         # 主线程不再负责查询和分发任务，只负责维护进程
         return py_trees.common.Status.RUNNING

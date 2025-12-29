@@ -41,7 +41,7 @@ def build():
     src_dir = os.path.join(project_dir, 'dist')
     output_dir = os.path.join(project_dir, 'build_output')
     exe_dir = os.path.join(output_dir, 'game_script')
-    loader_path = os.path.join(src_dir, 'load.py')
+    loader_path = os.path.join(src_dir, 'loader.py')
     exe_bin = os.path.join(exe_dir, 'game_script.exe')
     need_build = True
     if os.path.exists(loader_path) and os.path.exists(exe_bin):
@@ -73,18 +73,30 @@ def build():
             '--exclude-module=arcapi',
             '--hidden-import=win32com.client',
             '--hidden-import=win32gui',
+            '--hidden-import=keyboard',
+            '--hidden-import=py_trees',
+            '--hidden-import=functools',
+            '--hidden-import=traceback',
+            '--hidden-import=pyperclip',
             '--hidden-import=win32process',
             '--hidden-import=pythoncom',
             '--hidden-import=requests',
+            '--hidden-import=pyautogui',
             '--hidden-import=concurrent.futures',
             '--hidden-import=aiohttp',
             '--hidden-import=asyncio',
+            '--clean',
+            '--noconfirm',
         ]
         print("Running PyInstaller...")
         PyInstaller.__main__.run(args)
     else:
-        print("Skip packaging: dist/load.py unchanged")
+        print("Skip packaging: dist/loader.py unchanged")
     print("Copying external resources...")
+    #
+    # 确保输出根目录存在（即使跳过打包也复制资源）
+    if not os.path.exists(exe_dir):
+        os.makedirs(exe_dir, exist_ok=True)
     #
     dirs_to_copy = ['action', 'arcapi', 'pic']
     for d in dirs_to_copy:
@@ -103,6 +115,10 @@ def build():
     for f in os.listdir(src_dir):
         if f.endswith('.dll') or f.endswith('.txt') or f == 'ocr_server.exe':
             files_to_copy.append(f)
+    # 主入口脚本复制到可执行同级目录
+    main_src = os.path.join(src_dir, 'main.py')
+    if os.path.exists(main_src):
+        files_to_copy.append('main.py')
     #
     if os.path.exists(os.path.join(project_dir, 'dm.dll')):
         shutil.copy2(os.path.join(project_dir, 'dm.dll'), os.path.join(exe_dir, 'dm.dll'))
