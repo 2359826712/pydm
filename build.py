@@ -44,6 +44,7 @@ def build():
     loader_path = os.path.join(src_dir, 'loader.py')
     need_build = True
     kill_process_by_name("game_script")
+    kill_process_by_name("ocr_server")
     time.sleep(1)
     if need_build:
         try:
@@ -55,14 +56,25 @@ def build():
             print(f"Switching to new output directory: {output_dir}")
             if os.path.exists(output_dir):
                 safe_rmtree(output_dir)
+        # 清理临时构建目录，避免文件被占用
+        work_dir = os.path.join(project_dir, 'build_work')
+        spec_dir = os.path.join(project_dir, 'build_spec')
+        try:
+            safe_rmtree(work_dir)
+        except Exception as e:
+            print(f"Warning: could not clean work dir {work_dir}: {e}")
+        try:
+            safe_rmtree(spec_dir)
+        except Exception as e:
+            print(f"Warning: could not clean spec dir {spec_dir}: {e}")
         args = [
             loader_path,
             '--name=game_script',
             '--onedir',
             '--noconfirm',
             '--distpath', output_dir,
-            '--workpath', os.path.join(project_dir, 'build_work'),
-            '--specpath', os.path.join(project_dir, 'build_spec'),
+            '--workpath', work_dir,
+            '--specpath', spec_dir,
             '--exclude-module=action',
             '--exclude-module=arcapi',
             '--hidden-import=win32com.client',

@@ -13,7 +13,7 @@ import requests
 import base64
 import io
 import json
-
+from game_manager import ArcGameManager
 # 检查 Python 位数
 is_64bits = struct.calcsize('P') * 8 == 64
 if is_64bits:
@@ -76,6 +76,7 @@ class Arc_api:
         dm.SetKeypadDelay("normal",30)
         dm.SetMouseSpeed(6)
         dm.SetShowErrorMsg(0)
+        self.game_manager = ArcGameManager()
         # 设置 pic 目录
         script_dir = os.path.dirname(os.path.abspath(__file__))
         pic_dir = os.path.abspath(os.path.join(script_dir, "..", "pic"))
@@ -250,7 +251,7 @@ class Arc_api:
     def GetClientSize(self,hwnd,width=0,height=0):
         ret = dm.GetClientSize(hwnd,width,height)
         return ret
-        
+
     def get_script_config(self, getpath):
         config_path = f"{getpath}\\ggc.ini"
         if os.path.exists(config_path):
