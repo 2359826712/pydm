@@ -19,7 +19,7 @@ sys.path.append(os.path.join(script_dir))  # 添加上一级目录
 
 arc_api = Arc_api()
 
-def worker(token, talk_channel):
+def worker(token, talk_channel, claimed_map, claimed_lock, use_sync):
     """
     工作进程函数：持续查询并发送请求 (Async Version)
     每个进程独立计数，各自发送固定好友请求
@@ -37,7 +37,6 @@ def worker(token, talk_channel):
         background_tasks = set()
         bd_round = 1
         friend_items_num = 0
-        processed_keys = set()
         # 包装任务以捕获异常
         async def run_add_task(coro):
             try:
@@ -71,7 +70,9 @@ def worker(token, talk_channel):
                         bd_round+=1
                         await asyncio.sleep(5)
                         await local_client.clear_talk_channel_async("arc_game", 1)
-                        processed_keys.clear()
+                        if use_sync:
+                            with claimed_lock:
+                                claimed_map.clear()
                         friend_items_num = 0
                         continue
                     
@@ -87,15 +88,21 @@ def worker(token, talk_channel):
                         task_coro = None
                         if b_zone and b_zone != "1":
                             key = f"id:{b_zone}"
-                            if key in processed_keys:
-                                continue
-                            processed_keys.add(key)
+                            # 跨进程去重 (仅在模式3启用)
+                            if use_sync:
+                                with claimed_lock:
+                                    if key in claimed_map:
+                                        continue
+                                    claimed_map[key] = pid
                             task_coro = add_friend_by_id_async(str(b_zone), token, session)
                         else:
                             key = f"acct:{account}"
-                            if key in processed_keys:
-                                continue
-                            processed_keys.add(key)
+                            # 跨进程去重 (仅在模式3启用)
+                            if use_sync:
+                                with claimed_lock:
+                                    if key in claimed_map:
+                                        continue
+                                    claimed_map[key] = pid
                             task_coro = add_friend_by_http_async(account, token, session)
                         
                         # 使用包装器创建任务
@@ -138,9 +145,14 @@ class Invite(py_trees.behaviour.Behaviour):
     def __init__(self,  name="加好友"):
         super(Invite, self).__init__(name)
         self.processes = {}
+        # 跨进程共享的已领取键集合（用 dict 模拟 set）
+        self.manager = multiprocessing.Manager()
+        self.claimed_map = self.manager.dict()
+        self.claimed_lock = self.manager.Lock()
         
     def update(self) -> py_trees.common.Status:
-        if arc_api.select_mode() !="2" :
+        mode = arc_api.select_mode()
+        if mode not in ["2", "3"]:
             return py_trees.common.Status.SUCCESS
             
         # 每次 update 都重新读取 Token，支持运行时修改配置文件
@@ -164,7 +176,9 @@ class Invite(py_trees.behaviour.Behaviour):
         for idx, token in enumerate(tokens):
             if token not in self.processes or not self.processes[token].is_alive():
                 channel = (idx % 6) + 1
-                p = multiprocessing.Process(target=worker, args=(token, channel))
+                # 只有模式 3 启用跨进程去重
+                use_sync = (mode == "3")
+                p = multiprocessing.Process(target=worker, args=(token, channel, self.claimed_map, self.claimed_lock, use_sync))
                 p.daemon = True
                 p.start()
                 self.processes[token] = p
