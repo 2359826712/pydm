@@ -23,8 +23,8 @@ os.chdir(BASE_PATH)
 
 def run_main_script():
     """纯粹的动态加载并运行 dist/main.py"""
-    # 目标脚本路径：exe所在目录/dist/main.py
-    script_path = os.path.join(BASE_PATH, "dist", "main.py")
+    # 目标脚本路径：exe所在目录同级的 main.py
+    script_path = os.path.join(BASE_PATH, "main.py")
     
     if not os.path.exists(script_path):
         print(f"错误: 找不到入口文件 {script_path}")
@@ -32,10 +32,10 @@ def run_main_script():
         input("按回车键退出...")
         return
 
-    # 将 dist 目录加入 sys.path，这样 main.py 里的 import 才能找到同级模块
-    dist_dir = os.path.dirname(script_path)
-    if dist_dir not in sys.path:
-        sys.path.insert(0, dist_dir)
+    # 将 main.py 所在目录加入 sys.path，这样其 import 能找到同级模块
+    main_dir = os.path.dirname(script_path)
+    if main_dir not in sys.path:
+        sys.path.insert(0, main_dir)
 
     try:
         # 读取脚本内容
@@ -61,10 +61,8 @@ def run_main_script():
         input("按回车键退出...")
 
 if __name__ == "__main__":
-    # 查找 OCR 服务 exe
-    # ocr_exe_path = os.path.join(BASE_PATH, "ocr_server.exe")
-    # if not os.path.exists(ocr_exe_path):
-    alt_path = os.path.join(BASE_PATH, "dist", "ocr_server.exe")
+    ocr_exe_path = os.path.join(BASE_PATH, "ocr_server.exe")
+    alt_path = os.path.join(BASE_PATH, "ocr_server.exe")
     if os.path.exists(alt_path):
         ocr_exe_path = alt_path
     
