@@ -91,6 +91,20 @@ def build():
             '--hidden-import=concurrent.futures',
             '--hidden-import=aiohttp',
             '--hidden-import=asyncio',
+            '--hidden-import=sqlite3',
+            '--hidden-import=calendar',
+            '--hidden-import=multiprocessing',
+            '--hidden-import=threading',
+            '--hidden-import=ctypes',
+            '--hidden-import=configparser',
+            '--hidden-import=pathlib',
+            '--hidden-import=base64',
+            '--hidden-import=io',
+            '--hidden-import=json',
+            '--hidden-import=datetime',
+            '--hidden-import=re',
+            '--hidden-import=typing',
+            '--hidden-import=logging',
             '--clean',
             '--noconfirm',
         ]
@@ -104,7 +118,7 @@ def build():
     if not os.path.exists(exe_dir):
         os.makedirs(exe_dir, exist_ok=True)
     #
-    dirs_to_copy = ['action', 'arcapi', 'pic']
+    dirs_to_copy = ['action', 'arcapi', 'pic','python_server']
     for d in dirs_to_copy:
         src = os.path.join(src_dir, d)
         dst = os.path.join(exe_dir, d)

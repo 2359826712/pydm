@@ -2,11 +2,11 @@
 
 
 a = Analysis(
-    ['d:\\Desktop\\pydm\\dist\\loader.py'],
+    ['D:\\Desktop\\pydm\\dist\\loader.py'],
     pathex=[],
     binaries=[],
     datas=[],
-    hiddenimports=['win32com.client', 'win32gui', 'keyboard', 'py_trees', 'functools', 'traceback', 'win32process', 'pythoncom', 'requests', 'pyautogui', 'pyperclip', 'concurrent.futures', 'aiohttp', 'asyncio'],
+    hiddenimports=['win32com.client', 'win32gui', 'keyboard', 'py_trees', 'functools', 'traceback', 'win32process', 'pythoncom', 'requests', 'pyautogui', 'pyperclip', 'concurrent.futures', 'aiohttp', 'asyncio', 'sqlite3', 'calendar', 'multiprocessing', 'threading', 'ctypes', 'configparser', 'pathlib', 'base64', 'io', 'json', 'datetime', 're', 'typing', 'logging'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
