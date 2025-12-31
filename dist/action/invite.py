@@ -55,7 +55,7 @@ def worker(token, talk_channel, claimed_map, claimed_lock, use_sync):
             while True:
                 try:
                     # 1. 查询数据 (直接调用异步方法)
-                    status_code, response = await local_client.query_data_async("arc_game", 86400, channel, 10)
+                    status_code, response = await local_client.query_data_async("arc_game", 86400, talk_channel, 10)
                     friend_items = []
                     if status_code == 200:
                         data = response.get("data", [])
@@ -69,7 +69,7 @@ def worker(token, talk_channel, claimed_map, claimed_lock, use_sync):
                         # 如果没查到数据，休眠一会再试
                         bd_round+=1
                         await asyncio.sleep(5)
-                        await local_client.clear_talk_channel_async("arc_game", channel)
+                        await local_client.clear_talk_channel_async("arc_game", talk_channel)
                         if use_sync:
                             with claimed_lock:
                                 claimed_map.clear()
@@ -78,7 +78,7 @@ def worker(token, talk_channel, claimed_map, claimed_lock, use_sync):
                     
                     friend_items_num = len(friend_items)+friend_items_num
                     success, blocked = get_stats()
-                    print(f"进程id{pid} | 第{talk_channel}个Token |第{channel}个频道| 已进行{bd_round}轮，已发送{local_count}次，正在进行添加{friend_items_num}个好友，成功{success}个，被拉黑{blocked}个")
+                    print(f"进程id{pid} | Token [...{token[-6:]}] | 频道 {talk_channel} | 已进行{bd_round}轮，已发送{local_count}次，正在进行添加{friend_items_num}个好友，成功{success}个，被拉黑{blocked}个")
                     # 2. 异步并发处理查询到的好友
                     current_batch_tasks = []
                     for item in friend_items:
@@ -171,32 +171,44 @@ class Invite(py_trees.behaviour.Behaviour):
             return py_trees.common.Status.RUNNING
 
         # 维护进程状态
-        current_tokens = set(tokens)
-        active_tokens = set(self.processes.keys())
+        channel_config = arc_api.get_channel()
 
-        # 清理失效Token的进程
-        for token in active_tokens - current_tokens:
-            p = self.processes.pop(token)
-            if p.is_alive():
-                p.terminate()
+        # 1. 清理：已结束 且 不在当前配置中的进程
+        #    注意：正在运行的进程，即使不在 tokens 里，也不动它（实现“仍是没改之前的”）
+        dead_tokens = []
+        for token, p in self.processes.items():
+            if not p.is_alive():
+                # 进程已结束
+                if token not in tokens:
+                    # 且不再需要运行 -> 标记清理
+                    dead_tokens.append(token)
+        
+        for t in dead_tokens:
+            self.processes.pop(t)
 
-        # 启动或重启进程
+        # 2. 启动或重启进程
         for idx, token in enumerate(tokens):
-            channel = (idx % 6) + 1
+            if channel_config:
+                channel = channel_config
+            else:
+                channel = (idx % 6) + 1
+            
             use_sync = (mode == "3")
+            
+            should_start = False
             if token not in self.processes:
+                should_start = True
+            else:
+                p = self.processes[token]
+                # 如果已存在但死掉了 -> 重启
+                if not p.is_alive() and p.exitcode is not None:
+                     should_start = True
+            
+            if should_start:
                 p = multiprocessing.Process(target=worker, args=(token, channel, self.claimed_map, self.claimed_lock, use_sync))
                 p.daemon = True
                 p.start()
                 self.processes[token] = p
-            else:
-                p = self.processes[token]
-                # 仅当进程已结束（exitcode 不为 None）时才重启，避免刚启动时 is_alive() 为 False 的竞态
-                if not p.is_alive() and p.exitcode is not None:
-                    p = multiprocessing.Process(target=worker, args=(token, channel, self.claimed_map, self.claimed_lock, use_sync))
-                    p.daemon = True
-                    p.start()
-                    self.processes[token] = p
 
         # 主线程不再负责查询和分发任务，只负责维护进程
         return py_trees.common.Status.RUNNING

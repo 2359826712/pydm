@@ -1,6 +1,7 @@
 
 from re import A
 import sys
+import asyncio
 import os
 script_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(script_dir))  # 添加上一级目录
@@ -78,24 +79,30 @@ class Collect(py_trees.behaviour.Behaviour):
         pos = pos.split("|")
         if int(pos[0]) <= 0 :
             self.blackboard.need_collect = False
-            if self.blackboard.init_dll:
-                friend_list = arc_api.game_manager.get_friend_list()
-                print(f"\n===== 好友列表（共 {len(friend_list)} 个） =====")
-                
-                has_new_friend = False
-                for idx, friend in enumerate(friend_list):
-                    friend_name = friend['name']
-                    if friend_name not in self.local_friends:
-                        print(f"上报新好友: {friend_name}")
-                        client.insert_data("arc_game", friend_name, "1", "1", 50)
-                        self.local_friends.add(friend_name)
-                        has_new_friend = True
-                
-                if has_new_friend:
+            friend_list = arc_api.game_manager.get_friend_list()
+            print(f"\n===== 好友列表（共 {len(friend_list)} 个） =====")
+            
+            new_friends = [f['name'] for f in friend_list if f.get('name') and f['name'] not in self.local_friends]
+            
+            if new_friends:
+                async def batch_upload():
+                    tasks = []
+                    for name in new_friends:
+                        print(f"上报新好友: {name}")
+                        tasks.append(client.insert_data_async("arc_game", name, "1", "1", 50))
+                        self.local_friends.add(name)
+                    
+                    if tasks:
+                        await asyncio.gather(*tasks)
+
+                try:
+                    asyncio.run(batch_upload())
                     self._save_cache()
                     print("已更新好友缓存")
-                else:
-                    print("好友列表无变化，跳过上报")
+                except Exception as e:
+                    print(f"上报失败: {e}")
+            else:
+                print("好友列表无变化，跳过上报")
         else:
             arc_api.click_keyworld("esc")
         return py_trees.common.Status.RUNNING
