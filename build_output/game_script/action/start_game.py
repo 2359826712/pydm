@@ -78,7 +78,7 @@ class Start_Game(py_trees.behaviour.Behaviour):
                     logger.error("多次创建服务器数据表失败")
                 self.create_number = self.create_number + 1
                 time.sleep(1)
-                return bret.RUNNING
+                return py_trees.common.Status.RUNNING
         self.create_number  = 0
         self.blackboard.create_collect = True
         if not self.first_add_friend and self.blackboard.init_dll and arc_api.select_mode() !="2":
