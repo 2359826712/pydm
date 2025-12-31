@@ -97,22 +97,18 @@ class Collect(py_trees.behaviour.Behaviour):
         if int(pos[0]) <= 0 :
             self.blackboard.need_collect = False
             has_new_friend = False
-            new_names = []
             friend_list = arc_api.game_manager.get_friend_list()
             for idx, friend in enumerate(friend_list):
                 friend_name = friend['name']
                 if friend_name not in self.local_friends:
                     print(f"上报新好友: {friend_name}")
-                    new_names.append(friend_name)
+                    client.insert_data("arc_game", friend_name, "1", "1", 50)
                     self.local_friends.add(friend_name)
                     has_new_friend = True
             
             if has_new_friend:
                 self._save_cache()
-                self._upload_new_friends_async(new_names)
                 print("已更新好友缓存")
-            else:
-                print("好友列表无变化，跳过上报")
         else:
             arc_api.click_keyworld("esc")
         return py_trees.common.Status.RUNNING
