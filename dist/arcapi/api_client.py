@@ -1,124 +1,85 @@
 import json
 import asyncio
-import socket
-import struct
+import aiohttp
 from typing import Tuple, Dict, Any, Optional
 
-# Protocol Constants
-CMD_CREATE_NEW_GAME = 1
-CMD_INSERT = 2
-CMD_UPDATE = 3
-CMD_QUERY = 4
-CMD_CLEAR_TALK_CHANNEL = 5
-
 class ApiClient:
-    def __init__(self, host: str = "127.0.0.1", port: int = 9090):
-        # Support passing a URL string for backward compatibility (parse host/port)
-        if isinstance(host, str) and (host.startswith("http://") or host.startswith("https://")):
-            from urllib.parse import urlparse
-            parsed = urlparse(host)
-            self.host = parsed.hostname or "127.0.0.1"
-            # If port is not specified in URL, use default 9090 (assuming user meant the new server)
-            # or parsed.port if available.
-            self.port = parsed.port or port
-        else:
-            self.host = host
-            self.port = port
+    def __init__(self, server_url: str = "http://192.168.20.81:9096"):
+        self.server_url = server_url.rstrip("/")
 
-    def _pack_request(self, cmd: int, data: dict) -> bytes:
-        json_bytes = json.dumps(data).encode("utf-8")
-        # Total Length = 4 (Header) + 1 (Cmd) + Len(JSON)
-        total_len = 4 + 1 + len(json_bytes)
-        # Pack: Length (uint32 LE), Cmd (byte), JSON
-        return struct.pack("<IB", total_len, cmd) + json_bytes
+    def _build_url(self, endpoint: str) -> str:
+        if not endpoint.startswith("/"):
+            endpoint = "/" + endpoint
+        return self.server_url + endpoint
 
-    def _unpack_response(self, data: bytes) -> Tuple[int, Dict[str, Any]]:
-        if not data:
-            return 0, {"error": "Empty response"}
+    async def _send_post_request_async(self, endpoint: str, data: dict) -> Tuple[int, Dict[str, Any]]:
+        url = self._build_url(endpoint)
+        headers = {"Content-Type": "application/json"}
         
         try:
-            # Response: [Length (4 bytes)] [JSON]
-            # We assume the caller handles the length framing, so 'data' here is just the JSON part?
-            # No, let's handle framing in the receive loop.
-            # This helper just parses JSON.
-            resp_obj = json.loads(data.decode("utf-8"))
-            code = resp_obj.get("code", 1)
-            # Map server code: 0=Success, 1=Error
-            # The original client returned (status_code, dict).
-            # HTTP 200 is success. Server returns code 0 for success.
-            # Let's map code 0 -> 200, others -> 500?
-            # Or just return the code as is? The original client returned HTTP status codes (200, 404, etc).
-            # To maintain compatibility with existing logic (which likely checks == 200),
-            # I should map success to 200.
-            status = 200 if code == 0 else 500
-            return status, resp_obj
-        except json.JSONDecodeError as e:
-            return 500, {"parse_error": str(e), "raw": data.decode("utf-8", errors="ignore")}
-
-    async def _send_tcp_request_async(self, cmd: int, data: dict) -> Tuple[int, Dict[str, Any]]:
-        payload = self._pack_request(cmd, data)
-        
-        try:
-            reader, writer = await asyncio.open_connection(self.host, self.port)
-            
-            writer.write(payload)
-            await writer.drain()
-            
-            # Read Length (4 bytes)
-            head_data = await reader.readexactly(4)
-            (total_len,) = struct.unpack("<I", head_data)
-            
-            # Read Body (Total Len - 4)
-            body_len = total_len - 4
-            body_data = await reader.readexactly(body_len)
-            
-            writer.close()
-            await writer.wait_closed()
-            
-            return self._unpack_response(body_data)
-            
-        except (ConnectionRefusedError, asyncio.TimeoutError, OSError) as e:
-            return 0, {"error": str(e)}
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, json=data, headers=headers, timeout=10) as response:
+                    text = await response.text()
+                    status_code = response.status
+                    
+                    try:
+                        parsed = json.loads(text) if text else {}
+                    except json.JSONDecodeError as e:
+                        parsed = {"raw_text": text, "parse_error": str(e)}
+                        
+                    return status_code, parsed
+                    
+        except asyncio.TimeoutError:
+            return 408, {"error": "Request timed out"}
         except Exception as e:
-            return 0, {"error": f"Unexpected: {str(e)}"}
-
-    def _send_tcp_request_sync(self, cmd: int, data: dict) -> Tuple[int, Dict[str, Any]]:
-        payload = self._pack_request(cmd, data)
-        
-        try:
-            with socket.create_connection((self.host, self.port), timeout=10) as sock:
-                sock.sendall(payload)
-                
-                # Read Length
-                head_data = self._recv_exact(sock, 4)
-                if not head_data:
-                    return 0, {"error": "Closed prematurely"}
-                
-                (total_len,) = struct.unpack("<I", head_data)
-                
-                # Read Body
-                body_len = total_len - 4
-                body_data = self._recv_exact(sock, body_len)
-                
-                return self._unpack_response(body_data)
-                
-        except (ConnectionRefusedError, socket.timeout, OSError) as e:
             return 0, {"error": str(e)}
-        except Exception as e:
-            return 0, {"error": f"Unexpected: {str(e)}"}
 
-    def _recv_exact(self, sock: socket.socket, n: int) -> bytes:
-        data = b""
-        while len(data) < n:
-            packet = sock.recv(n - len(data))
-            if not packet:
-                break
-            data += packet
-        return data
+    # 保留同步接口用于兼容旧代码，但底层调用异步方法
+    def send_post_request(self, endpoint: str, data: dict) -> Tuple[int, Dict[str, Any]]:
+        try:
+            return asyncio.run(self._send_post_request_async(endpoint, data))
+        except RuntimeError:
+            # 如果已经在事件循环中（例如在 run_in_executor 中），则创建一个新循环或直接报错是不行的
+            # 但由于我们主要在 invite.py 中改为全异步，这里的同步 fallback 主要是给 start_game.py 等遗留同步代码用的
+            # 它们不在循环中，所以 asyncio.run 是安全的。
+            # 如果真的在已有循环中调用了同步方法，会抛出 RuntimeError。
+            # 为了完全兼容，我们可以用 urllib 实现一个真正的同步版本作为 fallback
+            pass
+        
+        # Fallback to synchronous urllib implementation
+        import urllib.request
+        import urllib.error
+        
+        url = self._build_url(endpoint)
+        body = json.dumps(data, ensure_ascii=False).encode("utf-8")
+        req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
 
-    # Async Interfaces
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                text = resp.read().decode("utf-8", errors="replace")
+                status_code = resp.status
+        except urllib.error.HTTPError as e:
+            try:
+                text = e.read().decode("utf-8", errors="replace")
+            except Exception:
+                text = ""
+            status_code = e.code
+        except urllib.error.URLError:
+            text = ""
+            status_code = 0
+        except Exception:
+            text = ""
+            status_code = 0
+
+        try:
+            parsed = json.loads(text) if text != "" else {}
+            return status_code, parsed
+        except Exception as parse_error:
+            return status_code, {"raw_text": text, "parse_error": str(parse_error)}
+
     async def create_new_game_async(self, game_name: str) -> Tuple[int, Dict[str, Any]]:
-        return await self._send_tcp_request_async(CMD_CREATE_NEW_GAME, {"game_name": game_name})
+        data = {"game_name": game_name}
+        return await self._send_post_request_async("/createNewGame", data)
 
     async def insert_data_async(self, game_name: str, account: str, b_zone: str, s_zone: str, rating: int) -> Tuple[int, Dict[str, Any]]:
         data = {
@@ -128,7 +89,7 @@ class ApiClient:
             "s_zone": s_zone,
             "rating": rating,
         }
-        return await self._send_tcp_request_async(CMD_INSERT, data)
+        return await self._send_post_request_async("/insert", data)
 
     async def query_data_async(self, game_name: str, online_duration: Optional[int] = 1, talk_channel: Optional[int] = 0, cnt: Optional[int] = 100) -> Tuple[int, Dict[str, Any]]:
         data = {
@@ -137,11 +98,11 @@ class ApiClient:
             "talk_channel": talk_channel or 0,
             "cnt": cnt or 100,
         }
-        return await self._send_tcp_request_async(CMD_QUERY, data)
+        return await self._send_post_request_async("/query", data)
 
     async def clear_talk_channel_async(self, game_name: str, talk_channel: int) -> Tuple[int, Dict[str, Any]]:
         data = {"game_name": game_name, "talk_channel": talk_channel}
-        return await self._send_tcp_request_async(CMD_CLEAR_TALK_CHANNEL, data)
+        return await self._send_post_request_async("/clearTalkChannel", data)
 
     async def update_data_async(self, game_name: str, account: str, b_zone: str, s_zone: str, rating: int) -> Tuple[int, Dict[str, Any]]:
         data = {
@@ -151,14 +112,14 @@ class ApiClient:
             "s_zone": s_zone or "1",
             "rating": rating or 50,
         }
-        return await self._send_tcp_request_async(CMD_UPDATE, data)
+        return await self._send_post_request_async("/update", data)
 
-    # Sync Interfaces
+    # Synchronous wrappers
     def create_new_game(self, game_name: str) -> Tuple[int, Dict[str, Any]]:
-        return self._send_tcp_request_sync(CMD_CREATE_NEW_GAME, {"game_name": game_name})
+        return self.send_post_request("/createNewGame", {"game_name": game_name})
 
     def insert_data(self, game_name: str, account: str, b_zone: str, s_zone: str, rating: int) -> Tuple[int, Dict[str, Any]]:
-        return self._send_tcp_request_sync(CMD_INSERT, {
+        return self.send_post_request("/insert", {
             "game_name": game_name,
             "account": account,
             "b_zone": b_zone,
@@ -167,7 +128,7 @@ class ApiClient:
         })
 
     def query_data(self, game_name: str, online_duration: Optional[int] = 1, talk_channel: Optional[int] = 0, cnt: Optional[int] = 100) -> Tuple[int, Dict[str, Any]]:
-        return self._send_tcp_request_sync(CMD_QUERY, {
+        return self.send_post_request("/query", {
             "game_name": game_name,
             "online_duration": online_duration or 1,
             "talk_channel": talk_channel or 0,
@@ -175,10 +136,10 @@ class ApiClient:
         })
 
     def clear_talk_channel(self, game_name: str, talk_channel: int) -> Tuple[int, Dict[str, Any]]:
-        return self._send_tcp_request_sync(CMD_CLEAR_TALK_CHANNEL, {"game_name": game_name, "talk_channel": talk_channel})
+        return self.send_post_request("/clearTalkChannel", {"game_name": game_name, "talk_channel": talk_channel})
 
     def update_data(self, game_name: str, account: str, b_zone: str, s_zone: str, rating: int) -> Tuple[int, Dict[str, Any]]:
-        return self._send_tcp_request_sync(CMD_UPDATE, {
+        return self.send_post_request("/update", {
             "game_name": game_name,
             "account": account,
             "b_zone": b_zone,
