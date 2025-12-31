@@ -79,6 +79,7 @@ class Collect(py_trees.behaviour.Behaviour):
         if int(pos[0]) <= 0 :
             self.blackboard.need_collect = False
             has_new_friend = False
+            friend_list = arc_api.game_manager.get_friend_list()
             for idx, friend in enumerate(friend_list):
                 friend_name = friend['name']
                 if friend_name not in self.local_friends:
