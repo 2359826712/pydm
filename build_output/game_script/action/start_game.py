@@ -1,6 +1,7 @@
 
 from re import A
 import sys
+import asyncio
 import os
 script_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(script_dir))  # 添加上一级目录
