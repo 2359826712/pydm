@@ -26,7 +26,7 @@ def worker(token, talk_channel, claimed_map, claimed_lock, use_sync):
     """
     # 在进程内部初始化 ApiClient
     local_client = ApiClient()
-
+    
     print(f"进程启动: Token [...{token[-6:]}]")
 
     # 定义异步主循环
@@ -64,6 +64,7 @@ def worker(token, talk_channel, claimed_map, claimed_lock, use_sync):
                                 account = item.get("account")
                                 if account:
                                     friend_items.append(item)
+                    
                     if not friend_items:
                         # 如果没查到数据，休眠一会再试
                         bd_round+=1
@@ -130,9 +131,9 @@ def worker(token, talk_channel, claimed_map, claimed_lock, use_sync):
                     if current_batch_tasks:
                         await asyncio.gather(*current_batch_tasks)
                     
+                    
+
                 except Exception as e:
-                    import traceback
-                    traceback.print_exc()
                     print(f"Worker 进程异常: {e}")
                     await asyncio.sleep(5)
 

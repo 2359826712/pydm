@@ -134,8 +134,6 @@ def worker(token, talk_channel, claimed_map, claimed_lock, use_sync):
                     
 
                 except Exception as e:
-                    import traceback
-                    traceback.print_exc()
                     print(f"Worker 进程异常: {e}")
                     await asyncio.sleep(5)
 
