@@ -21,6 +21,23 @@ else:
 # 设置工作目录为当前目录
 os.chdir(BASE_PATH)
 
+# 修复 sys.stdout/stderr 为 None 导致的 AttributeError: 'NoneType' object has no attribute 'encoding'
+# 这通常发生在 py_trees 等库在非控制台环境（或被某些机制 detach 后）尝试访问 sys.stdout.encoding 时
+class DummyStream:
+    def __init__(self):
+        self.encoding = 'utf-8'
+    def write(self, s):
+        pass
+    def flush(self):
+        pass
+    def isatty(self):
+        return False
+
+if sys.stdout is None:
+    sys.stdout = DummyStream()
+if sys.stderr is None:
+    sys.stderr = DummyStream()
+
 def run_main_script():
     """纯粹的动态加载并运行 dist/main.py"""
     # 目标脚本路径：exe所在目录/dist/main.py
