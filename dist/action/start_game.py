@@ -1,7 +1,6 @@
 
 from re import A
 import sys
-import asyncio
 import os
 script_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(script_dir))  # 添加上一级目录
@@ -81,32 +80,6 @@ class Start_Game(py_trees.behaviour.Behaviour):
                 return py_trees.common.Status.RUNNING
         self.create_number  = 0
         self.blackboard.create_collect = True
-        # if not self.first_add_friend and self.blackboard.init_dll and arc_api.select_mode() !="2":
-        #     self.first_add_friend = True
-        #     friend_list = arc_api.game_manager.get_friend_list()
-        #     print(f"\n===== 好友列表（共 {len(friend_list)} 个） =====")
-            
-        #     new_friends = [f['name'] for f in friend_list if f.get('name') and f['name'] not in self.local_friends]
-            
-        #     if new_friends:
-        #         async def batch_upload():
-        #             tasks = []
-        #             for name in new_friends:
-        #                 print(f"上报新好友: {name}")
-        #                 tasks.append(client.insert_data_async("arc_game", name, "1", "1", 50))
-        #                 self.local_friends.add(name)
-                    
-        #             if tasks:
-        #                 await asyncio.gather(*tasks)
-
-        #         try:
-        #             asyncio.run(batch_upload())
-        #             self._save_cache()
-        #             print("已更新好友缓存")
-        #         except Exception as e:
-        #             print(f"上报失败: {e}")
-        #     else:
-        #         print("好友列表无变化，跳过上报")
         close_pos = arc_api.FindPicE(0,0,1450,645,"close.bmp","000000",1.0,0)
         close_pos = close_pos.split("|")
         if int(close_pos[1]) > 0 :

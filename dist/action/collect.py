@@ -4,7 +4,7 @@ import sys
 import os
 script_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(script_dir))  # 添加上一级目录
-from threading import local, Thread
+from threading import local
 import time 
 import py_trees
 import time
@@ -15,7 +15,6 @@ client = ApiClient()
 
 
 import json
-import asyncio
 import logging
 # 配置日志记录器
 logging.basicConfig(level=logging.DEBUG)
@@ -51,23 +50,6 @@ class Collect(py_trees.behaviour.Behaviour):
         except Exception as e:
             logger.error(f"保存缓存失败: {e}")
 
-    def _upload_new_friends_async(self, names):
-        if not names:
-            return
-        async def _run():
-            lc = ApiClient()
-            tasks = [lc.insert_data_async("arc_game", n, "1", "1", 50) for n in names]
-            try:
-                await asyncio.gather(*tasks, return_exceptions=True)
-            except Exception:
-                pass
-        try:
-            loop = asyncio.get_running_loop()
-            for n in names:
-                asyncio.create_task(ApiClient().insert_data_async("arc_game", n, "1", "1", 50))
-        except RuntimeError:
-            Thread(target=lambda: asyncio.run(_run()), daemon=True).start()
-
     def update(self) -> py_trees.common.Status:
         self.blackboard.in_game = False
         pos = arc_api.FindColorE(26,787,266,869,"54c8e9-000000|ffffff-000000",1.0,0)
@@ -96,19 +78,24 @@ class Collect(py_trees.behaviour.Behaviour):
         pos = pos.split("|")
         if int(pos[0]) <= 0 :
             self.blackboard.need_collect = False
-            has_new_friend = False
-            friend_list = arc_api.game_manager.get_friend_list()
-            for idx, friend in enumerate(friend_list):
-                friend_name = friend['name']
-                if friend_name not in self.local_friends:
-                    print(f"上报新好友: {friend_name}")
-                    client.insert_data("arc_game", friend_name, "1", "1", 50)
-                    self.local_friends.add(friend_name)
-                    has_new_friend = True
-            
-            if has_new_friend:
-                self._save_cache()
-                print("已更新好友缓存")
+            if self.blackboard.init_dll:
+                friend_list = arc_api.game_manager.get_friend_list()
+                print(f"\n===== 好友列表（共 {len(friend_list)} 个） =====")
+                
+                has_new_friend = False
+                for idx, friend in enumerate(friend_list):
+                    friend_name = friend['name']
+                    if friend_name not in self.local_friends:
+                        print(f"上报新好友: {friend_name}")
+                        client.insert_data("arc_game", friend_name, "1", "1", 50)
+                        self.local_friends.add(friend_name)
+                        has_new_friend = True
+                
+                if has_new_friend:
+                    self._save_cache()
+                    print("已更新好友缓存")
+                else:
+                    print("好友列表无变化，跳过上报")
         else:
             arc_api.click_keyworld("esc")
         return py_trees.common.Status.RUNNING
