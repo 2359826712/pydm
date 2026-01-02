@@ -71,7 +71,7 @@ class Arc_api:
         else:
             print("注册失败")
         dm.SetSimMode(0)
-        dm.SetMouseDelay("normal",30)
+        dm.SetMouseDelay("normal",50)
         dm.SetKeypadDelay("normal",30)
         dm.SetMouseSpeed(6)
         dm.SetShowErrorMsg(0)
