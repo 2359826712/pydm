@@ -25,8 +25,10 @@ class Exit_Game(py_trees.behaviour.Behaviour):
         self.blackboard = self.attach_blackboard_client()
         self.blackboard.register_key(key="in_game", access=py_trees.common.Access.WRITE)#READ
         self.blackboard.register_key(key="need_collect", access=py_trees.common.Access.WRITE)#READ
+        self.blackboard.register_key(key="middle_window_click", access=py_trees.common.Access.WRITE)#READ
         self.time = 0
     def update(self) -> py_trees.common.Status:
+        self.blackboard.middle_window_click = False
         exit_pos = arc_api.FindColorE(98,628,123,659,"a3a4a9-000000|0b0e1b-000000|a4a5aa-000000",1.0,0)
         exit_pos = exit_pos.split("|")
         if int(exit_pos[1]) > 0:
