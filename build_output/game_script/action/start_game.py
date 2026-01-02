@@ -101,7 +101,7 @@ class Start_Game(py_trees.behaviour.Behaviour):
             print("点击中间弹窗")
             arc_api.mouse_click(948,523,0)
             return py_trees.common.Status.RUNNING
-        pos = arc_api.FindColorE(1256,711,1549,781,"ffbc13-000000",1.0,0)
+        pos = arc_api.FindColorE(1256,711,1549,781,"ffbc13-000000",1.0,8)
         pos = pos.split("|")
         if int(pos[0]) > 0 :
             time.sleep(0.5)
@@ -112,6 +112,9 @@ class Start_Game(py_trees.behaviour.Behaviour):
             return py_trees.common.Status.FAILURE
         if self.blackboard.in_game:
             print("在游戏内")
+            arc_api.move_to(745,475)
+            time.sleep(0.5)
+            arc_api.mouse_click(745,475,0)
             return py_trees.common.Status.SUCCESS
         if not self.blackboard.init_dll:
             print("初始化dll")
@@ -139,11 +142,13 @@ class Start_Game(py_trees.behaviour.Behaviour):
             print("继续页面")
             self.blackboard.need_collect = True
             return py_trees.common.Status.RUNNING
-        pos = arc_api.FindColorE(1256,711,1549,781,"ffbc13-000000",1.0,0)
+        pos = arc_api.FindColorE(1256,711,1549,781,"ffbc13-000000",1.0,8)
         pos = pos.split("|")
         if int(pos[0]) > 0 :
             time.sleep(0.5)
             print("点击开始")
+            arc_api.move_to(1402,736)
+            time.sleep(0.5)
             arc_api.mouse_click(1402,736,0)
             return py_trees.common.Status.RUNNING
         else:
@@ -152,6 +157,8 @@ class Start_Game(py_trees.behaviour.Behaviour):
             if int(map_select[1]) > 0:
                 time.sleep(0.5)
                 print("点击地图")
+                arc_api.move_to(745,475)
+                time.sleep(0.5)
                 arc_api.mouse_click(745,475,0)
                 return py_trees.common.Status.RUNNING
         
