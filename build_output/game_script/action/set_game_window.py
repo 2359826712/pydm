@@ -97,7 +97,6 @@ class Set_Game_Window(py_trees.behaviour.Behaviour):
                         self.time = 0
             if window_rect[3] - window_rect[1] != 1616 or window_rect[4] - window_rect[2] != 939 :
                 print("设置窗口大小") 
-                arc_api.SetWindowSize(window_hwd,1616,939)
                 arc_api.SetClientSize(window_hwd,1600,900)
                 return py_trees.common.Status.RUNNING
             return py_trees.common.Status.SUCCESS

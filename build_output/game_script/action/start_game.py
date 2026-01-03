@@ -151,11 +151,9 @@ class Start_Game(py_trees.behaviour.Behaviour):
         if int(pos[0]) > 0 :
             time.sleep(0.5)
             print("点击开始")
-            arc_api.move_to(1256,711)
+            arc_api.system_move_to(1401,771)
             time.sleep(0.5)
-            arc_api.move_to(1402,736)
-            time.sleep(0.5)
-            arc_api.mouse_click(1402,736,0)
+            arc_api.system_click()
             return py_trees.common.Status.RUNNING
         else:
             map_select = arc_api.FindColorE(432,442,593,600,"9c8b71-000000|94846c-000000",1.0,0)

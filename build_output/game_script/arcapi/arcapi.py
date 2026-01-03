@@ -12,6 +12,8 @@ import pyautogui
 import requests
 import base64
 import io
+import win32api
+import win32con
 import json
 from game_manager import ArcGameManager
 # 检查 Python 位数
@@ -70,11 +72,11 @@ class Arc_api:
             print("注册成功")
         else:
             print("注册失败")
-        dm.SetSimMode(0)
         dm.SetMouseDelay("normal",50)
         dm.SetKeypadDelay("normal",30)
         dm.SetMouseSpeed(6)
         dm.SetShowErrorMsg(0)
+        dm.SetSimMode(0)
         self.game_manager = ArcGameManager()
         # 设置 pic 目录
         script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -119,7 +121,16 @@ class Arc_api:
     # 移动指定窗口到指定位置
     def MoveWindow(self,hwd,x,y):
         return dm.MoveWindow(hwd,x,y) 
+    def system_move_to(self, x, y):
+        """系统级鼠标移动(前台)"""
+        win32api.SetCursorPos((int(x), int(y)))
 
+
+    def system_click(self):
+        """系统级鼠标移动并左键点击(前台)"""
+        # self.system_move_to(x, y)
+        # time.sleep(0.05)
+        win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN | win32con.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
     # 设置窗口的状态
     # flag: 0 : 关闭指定窗口 1 : 激活指定窗口 2 : 最小化指定窗口,但不激活
     #   3 : 最小化指定窗口,并释放内存,但同时也会激活窗口.(释放内存可以考虑用FreeProcessMemory函数)
