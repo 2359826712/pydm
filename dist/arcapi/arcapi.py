@@ -1,4 +1,7 @@
 import win32com.client
+import win32api
+import win32con
+import win32gui
 import os
 import sys
 import struct
@@ -9,10 +12,17 @@ import configparser
 from pathlib import Path
 import pyperclip
 import pyautogui
+try:
+    import mss
+    _has_mss = True
+except Exception:
+    _has_mss = False
 import requests
 import base64
 import io
 import json
+import subprocess
+import re
 from game_manager import ArcGameManager
 # 检查 Python 位数
 is_64bits = struct.calcsize('P') * 8 == 64
@@ -62,6 +72,7 @@ class Arc_api:
 
     def __init__(self):
         if not self._initialized:
+            self._http = requests.Session()
             pass
     def init_data(self):
         # print(f"当前大漠插件版本: {dm.Ver()}")
@@ -70,11 +81,11 @@ class Arc_api:
             print("注册成功")
         else:
             print("注册失败")
-        dm.SetSimMode(0)
         dm.SetMouseDelay("normal",50)
         dm.SetKeypadDelay("normal",30)
         dm.SetMouseSpeed(6)
         dm.SetShowErrorMsg(0)
+        dm.SetSimMode(0)
         self.game_manager = ArcGameManager()
         # 设置 pic 目录
         script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -143,6 +154,86 @@ class Arc_api:
                 dm.RightClick()
             elif state == 2:
                 dm.LeftDoubleClick()
+
+    def probe_input_ready(self):
+        try:
+            p = win32api.GetCursorPos()
+            win32api.SetCursorPos(p)
+            return True
+        except Exception:
+            return False
+
+    def system_move_to(self, x, y):
+        try:
+            win32api.SetCursorPos((int(x), int(y)))
+        except Exception as e:
+            print(f"系统级鼠标移动失败: {e}")
+            return False
+
+    def system_click(self):
+        """系统级鼠标移动并左键点击(前台)"""
+        win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN | win32con.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+
+    def get_screen_resolution(self):
+        """获取当前屏幕分辨率"""
+        width = win32api.GetSystemMetrics(win32con.SM_CXSCREEN)
+        height = win32api.GetSystemMetrics(win32con.SM_CYSCREEN)
+        return width, height
+
+    def set_screen_resolution(self, width, height):
+        """
+        修改屏幕分辨率
+        :param width: 宽
+        :param height: 高
+        :return: 是否成功
+        """
+        try:
+            devmode = win32api.EnumDisplaySettings(None, win32con.ENUM_CURRENT_SETTINGS)
+            devmode.PelsWidth = int(width)
+            devmode.PelsHeight = int(height)
+            devmode.Fields = win32con.DM_PELSWIDTH | win32con.DM_PELSHEIGHT
+            
+            # 尝试更改设置
+            result = win32api.ChangeDisplaySettings(devmode, 0)
+            
+            if result == win32con.DISP_CHANGE_SUCCESSFUL:
+                print(f"分辨率已修改为 {width}x{height}")
+                return True
+            elif result == win32con.DISP_CHANGE_RESTART:
+                print("需要重启计算机才能生效")
+                return False
+            elif result == win32con.DISP_CHANGE_BADMODE:
+                print("不支持该分辨率")
+                return False
+            else:
+                print(f"修改失败，错误代码: {result}")
+                return False
+        except Exception as e:
+            print(f"修改分辨率异常: {e}")
+            return False
+
+    
+    def post_click(self, hwnd, x, y):
+        """
+        向指定窗口发送后台点击消息
+        :param hwnd: 窗口句柄
+        :param x: 客户区相对 x 坐标
+        :param y: 客户区相对 y 坐标
+        """
+        lparam = win32api.MAKELONG(x, y)
+        win32gui.PostMessage(hwnd, win32con.WM_LBUTTONDOWN, win32con.MK_LBUTTON, lparam)
+        time.sleep(0.05)
+        win32gui.PostMessage(hwnd, win32con.WM_LBUTTONUP, 0, lparam)
+
+    def post_input_text(self, hwnd, text):
+        """
+        向指定窗口发送后台文本输入消息
+        :param hwnd: 窗口句柄
+        :param text: 要输入的文本
+        """
+        for char in text:
+            win32gui.PostMessage(hwnd, win32con.WM_CHAR, ord(char), 0)
+            time.sleep(0.01)
 
     def FindColorE(self,x1, y1, x2, y2, color, sim, dir):
         return dm.FindColorE(x1, y1, x2, y2, color, sim, dir)
@@ -251,6 +342,40 @@ class Arc_api:
         ret = dm.GetClientSize(hwnd,width,height)
         return ret
 
+    def get_app_path(self):
+        """
+        获取应用程序根目录
+        兼容 exe 打包环境和 IDE 源码运行环境
+        """
+        if getattr(sys, 'frozen', False):
+            # Exe 运行模式：返回 exe 所在目录
+            return os.path.dirname(sys.executable)
+        else:
+            # 源码运行模式
+            # 本文件在 dist/arcapi/arcapi.py
+            # 目标根目录是 dist/
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            # 向上找一级: dist/arcapi -> dist
+            return os.path.dirname(current_dir)
+
+    def read_config(self,config_path, section, key, default=None):
+        """
+        读取 config.ini 配置文件
+        :param section: 配置段
+        :param key: 配置键
+        :param default: 默认值
+        :return: 配置值
+        """
+
+        try:
+            config = configparser.ConfigParser()
+            # 支持中文路径和内容
+            config.read(config_path, encoding='utf-8')
+            return config.get(section, key, fallback=default)
+        except Exception as e:
+            print(f"读取配置文件失败: {e}")
+            return default
+
     def get_script_config(self, getpath):
         config_path = f"{getpath}\\ggc.ini"
         if os.path.exists(config_path):
@@ -270,6 +395,14 @@ class Arc_api:
             for i, line in enumerate(f):
                 if i >= n:
                     break
+                result.append(line.rstrip("\r\n") if strip else line)
+        return result
+
+    def read_first_n_lines1(self, path, encoding="utf-8", strip=True):
+        p = Path(path)
+        result = []
+        with p.open("r", encoding=encoding, errors="replace") as f:
+            for i, line in enumerate(f):
                 result.append(line.rstrip("\r\n") if strip else line)
         return result
 
@@ -453,15 +586,9 @@ class Arc_api:
         
         print("Epic 账号记录清理完成")
 
-    def ocr_text(self, x1, y1, x2, y2, target_text="",timeout=3):
+    def ocr_text(self, x1, y1, x2, y2, target_text="", timeout=5, max_side=720, use_angle_cls=False):
         """
         截图并调用本地 OCR 服务进行识别 (不保存图片文件)
-        :param x1: 左上角 x
-        :param y1: 左上角 y
-        :param x2: 右下角 x
-        :param y2: 右下角 y
-        :param target_text: 可选，过滤目标文本
-        :return: 识别结果列表或 None
         """
         try:
             w = x2 - x1
@@ -470,25 +597,41 @@ class Arc_api:
                 print("无效的截图区域")
                 return None
             
-            # 使用 pyautogui 截图 (内存操作)
-            # 注意: 如果窗口被遮挡或使用了特殊的绑定模式，pyautogui 可能截不到
-            img = pyautogui.screenshot(region=(x1, y1, w, h))
-            
-            # 转 base64
-            buffered = io.BytesIO()
-            img.save(buffered, format="JPEG")
-            img_str = base64.b64encode(buffered.getvalue()).decode()
+            # 强制使用 pyautogui 截图，规避 mss 可能导致的崩溃
+            if _has_mss:
+            # if False: 
+                with mss.mss() as sct:
+                    monitor = {"left": x1, "top": y1, "width": w, "height": h}
+                    shot = sct.grab(monitor)
+                    import numpy as _np
+                    import cv2 as _cv2
+                    # BGRA -> BGR
+                    frame = _np.array(shot)[:, :, :3]
+                    frame = _cv2.cvtColor(frame, _cv2.COLOR_BGRA2BGR)
+                    # 编码为 JPEG，降低开销
+                    ok, buf = _cv2.imencode('.jpg', frame, [_cv2.IMWRITE_JPEG_QUALITY, 75])
+                    if not ok:
+                        raise Exception("mss 编码失败")
+                    img_str = base64.b64encode(buf.tobytes()).decode()
+            else:
+                # print(f"截图区域: {x1},{y1} {w}x{h}")
+                img = pyautogui.screenshot(region=(x1, y1, w, h))
+                buffered = io.BytesIO()
+                img.save(buffered, format="JPEG")
+                img_str = base64.b64encode(buffered.getvalue()).decode()
             
             # 构造请求
             url = "http://127.0.0.1:5000/ocr"
             payload = {
                 "image_base64": img_str,
-                "target_text": target_text
+                "target_text": target_text,
+                "max_side": max_side,
+                "use_angle_cls": use_angle_cls
             }
             
             # 发送请求
             try:
-                response = requests.post(url, json=payload, timeout = timeout)
+                response = self._http.post(url, json=payload, timeout=timeout)
                 if response.status_code == 200:
                     res_json = response.json()
                     if res_json.get("code") == 0:
@@ -507,8 +650,8 @@ class Arc_api:
             print(f"OCR 调用异常: {e}")
             return None
 
-    def ocr_recognize(self, x1, y1, x2, y2, target_text="",timeout=3):
-        data = self.ocr_text(x1, y1, x2, y2, target_text=target_text,timeout=timeout)
+    def ocr_recognize(self, x1, y1, x2, y2, target_text="", timeout=5, max_side=720, use_angle_cls=False):
+        data = self.ocr_text(x1, y1, x2, y2, target_text=target_text, timeout=timeout, max_side=max_side, use_angle_cls=use_angle_cls)
         if not data:
             return None
         def _rect_from_box(box):
@@ -535,3 +678,46 @@ class Arc_api:
                 "rect": [int(rx), int(ry), int(rw), int(rh)]
             })
         return out
+
+    def get_local_ip(self):
+        """
+        获取本机 IPv4 地址 (解析 ipconfig 输出)
+        不使用 socket，直接调用 ipconfig 命令并正则匹配
+        """
+        try:
+            # 执行 ipconfig 命令
+            # Windows 下 ipconfig 输出编码通常为 gbk
+            output = subprocess.check_output("ipconfig", shell=True).decode('gbk', errors='ignore')
+            
+            # 匹配 IPv4 地址
+            # 兼容中文 "IPv4 地址" 和英文 "IPv4 Address" 以及可能出现的 "IP Address"
+            # 正则逻辑：匹配 "IPv4" 或 "IP" 开头，直到冒号，然后捕获 IP
+            pattern = r"(?:IPv4|IP)[^:\r\n]+:\s*([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)"
+            
+            matches = re.findall(pattern, output)
+            
+            # 优先返回非 127.0.0.1 的地址
+            for ip in matches:
+                if ip != "127.0.0.1":
+                    return ip
+            
+            return None
+        except Exception as e:
+            print(f"获取IP失败: {e}")
+            return None
+
+    def GetScreenDepth(self):
+        """获取屏幕深度"""
+        return dm.GetScreenDepth()
+
+    def GetScreenWidth(self):
+        """获取屏幕宽度"""
+        return dm.GetScreenWidth()
+
+    def GetScreenHeight(self):
+        """获取屏幕高度"""
+        return dm.GetScreenHeight()
+
+    def SetScreen(self, width, height,depth=32):
+        """设置屏幕大小"""
+        return dm.SetScreen(width, height,depth)
