@@ -75,6 +75,32 @@ def worker(token, talk_channel, claimed_map, claimed_lock, use_sync):
                                 claimed_map.clear()
                         friend_items_num = 0
                         continue
+                    # status_code, response = await local_client.query_data_async("arc_game", 1440, talk_channel, 10)
+                    # friend_items = []
+                    # if status_code == 200:
+                    #     data = response.get("data", [])
+                    #     if isinstance(data, list):
+                    #         for item in data:
+                    #             account = item.get("account")
+                    #             if account:
+                    #                 friend_items.append(item)
+                    
+                    # if not friend_items:
+                    #     # 如果没查到数据，等待自定义小时
+                    #     wait_hours = 3 # 自定义小时
+                    #     print(f"进程id{pid} | Token [...{token[-6:]}] | 未查到数据，等待 {wait_hours} 小时...")
+                        
+                    #     bd_round+=1
+                        
+                    #     # 期间代码不停止 (非阻塞等待)
+                    #     await asyncio.sleep(wait_hours * 3600)
+                        
+                    #     await local_client.clear_talk_channel_async("arc_game", talk_channel)
+                    #     if use_sync:
+                    #         with claimed_lock:
+                    #             claimed_map.clear()
+                    #     friend_items_num = 0
+                    #     continue
                     
                     friend_items_num = len(friend_items)+friend_items_num
                     success, blocked = get_stats()
