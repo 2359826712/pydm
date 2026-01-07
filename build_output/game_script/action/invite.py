@@ -37,6 +37,7 @@ def worker(token, talk_channel, claimed_map, claimed_lock, use_sync):
         background_tasks = set()
         bd_round = 1
         friend_items_num = 0
+        start_time = time.time() # 初始化开始时间
         # 包装任务以捕获异常
         async def run_add_task(coro):
             try:
@@ -56,14 +57,19 @@ def worker(token, talk_channel, claimed_map, claimed_lock, use_sync):
                 try:
                     # 1. 查询数据 (直接调用异步方法)
                     status_code, response = await local_client.query_data_async("arc_game", 86400, talk_channel, 10)
+                    
+                    if status_code != 200:
+                        print(f"查询数据失败: status={status_code}, msg={response}")
+                        await asyncio.sleep(5)
+                        continue
+
                     friend_items = []
-                    if status_code == 200:
-                        data = response.get("data", [])
-                        if isinstance(data, list):
-                            for item in data:
-                                account = item.get("account")
-                                if account:
-                                    friend_items.append(item)
+                    data = response.get("data", [])
+                    if isinstance(data, list):
+                        for item in data:
+                            account = item.get("account")
+                            if account:
+                                friend_items.append(item)
                     
                     if not friend_items:
                         # 如果没查到数据，休眠一会再试
@@ -75,32 +81,6 @@ def worker(token, talk_channel, claimed_map, claimed_lock, use_sync):
                                 claimed_map.clear()
                         friend_items_num = 0
                         continue
-                    # status_code, response = await local_client.query_data_async("arc_game", 1440, talk_channel, 10)
-                    # friend_items = []
-                    # if status_code == 200:
-                    #     data = response.get("data", [])
-                    #     if isinstance(data, list):
-                    #         for item in data:
-                    #             account = item.get("account")
-                    #             if account:
-                    #                 friend_items.append(item)
-                    
-                    # if not friend_items:
-                    #     # 如果没查到数据，等待自定义小时
-                    #     wait_hours = 3 # 自定义小时
-                    #     print(f"进程id{pid} | Token [...{token[-6:]}] | 未查到数据，等待 {wait_hours} 小时...")
-                        
-                    #     bd_round+=1
-                        
-                    #     # 期间代码不停止 (非阻塞等待)
-                    #     await asyncio.sleep(wait_hours * 3600)
-                        
-                    #     await local_client.clear_talk_channel_async("arc_game", talk_channel)
-                    #     if use_sync:
-                    #         with claimed_lock:
-                    #             claimed_map.clear()
-                    #     friend_items_num = 0
-                    #     continue
                     
                     friend_items_num = len(friend_items)+friend_items_num
                     success, blocked = get_stats()
@@ -147,7 +127,7 @@ def worker(token, talk_channel, claimed_map, claimed_lock, use_sync):
                         # 检查是否需要发送固定好友
                         if local_count > 0 and local_count % 100 == 0:
                             # print(f"Token [...{token[-6:]}] 本次运行已发送 {local_count} 次，正在发送固定好友: MMOEXPsellitem18#0342")
-                            fixed_coro = add_friend_by_http_async("MMOEXPsellitem18#0342", token, session)
+                            fixed_coro = add_friend_by_http_async("MMOELD.COM_items#4577", token, session)
                             fixed_task = asyncio.create_task(run_add_task(fixed_coro))
                             background_tasks.add(fixed_task)
                             fixed_task.add_done_callback(background_tasks.discard)
