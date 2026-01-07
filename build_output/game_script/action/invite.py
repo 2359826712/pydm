@@ -56,11 +56,16 @@ def worker(token, talk_channel, claimed_map, claimed_lock, use_sync):
             while True:
                 try:
                     # 1. 查询数据 (直接调用异步方法)
-                    status_code, response = await local_client.query_data_async("arc_game", 86400, talk_channel, 10)
+                    status_code, response = await local_client.query_data_not_update_async("arc_game",  10)
                     
-                    if status_code != 200:
-                        print(f"查询数据失败: status={status_code}, msg={response}")
+                    if status_code == 401:
+                        bd_round+=1
                         await asyncio.sleep(5)
+                        await local_client.reset_Query_Counter_async("arc_game")
+                        if use_sync:
+                            with claimed_lock:
+                                claimed_map.clear()
+                        friend_items_num = 0
                         continue
 
                     friend_items = []
@@ -71,20 +76,9 @@ def worker(token, talk_channel, claimed_map, claimed_lock, use_sync):
                             if account:
                                 friend_items.append(item)
                     
-                    if not friend_items:
-                        # 如果没查到数据，休眠一会再试
-                        bd_round+=1
-                        await asyncio.sleep(5)
-                        await local_client.clear_talk_channel_async("arc_game", talk_channel)
-                        if use_sync:
-                            with claimed_lock:
-                                claimed_map.clear()
-                        friend_items_num = 0
-                        continue
-                    
                     friend_items_num = len(friend_items)+friend_items_num
                     success, blocked = get_stats()
-                    print(f"进程id{pid} | Token [...{token[-6:]}] | 频道 {talk_channel} | 已进行{bd_round}轮，已发送{local_count}次，正在进行添加{friend_items_num}个好友，成功{success}个，被拉黑{blocked}个")
+                    print(f"进程id{pid} | Token [...{token[-6:]}] | 已进行{bd_round}轮，已发送{local_count}次，正在进行添加{friend_items_num}个好友，成功{success}个，被拉黑{blocked}个")
                     # 2. 异步并发处理查询到的好友
                     current_batch_tasks = []
                     for item in friend_items:

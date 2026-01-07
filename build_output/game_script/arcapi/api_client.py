@@ -99,11 +99,19 @@ class ApiClient:
             "cnt": cnt or 100,
         }
         return await self._send_post_request_async("/query", data)
+    async def query_data_not_update_async(self, game_name: str, cnt: Optional[int] = 100) -> Tuple[int, Dict[str, Any]]:
+        data = {
+            "game_name": game_name,
+            "cnt": cnt or 100,
+        }
+        return await self._send_post_request_async("/query_no_update", data)
 
+    async def reset_Query_Counter_async(self, game_name: str) -> Tuple[int, Dict[str, Any]]:
+        data = {"game_name": game_name}
+        return await self._send_post_request_async("/resetQueryCounter", data)
     async def clear_talk_channel_async(self, game_name: str, talk_channel: int) -> Tuple[int, Dict[str, Any]]:
         data = {"game_name": game_name, "talk_channel": talk_channel}
         return await self._send_post_request_async("/clearTalkChannel", data)
-
     async def update_data_async(self, game_name: str, account: str, b_zone: str, s_zone: str, rating: int) -> Tuple[int, Dict[str, Any]]:
         data = {
             "game_name": game_name,
