@@ -118,10 +118,11 @@ class ApiClient:
             "cnt": cnt or 100,
         }
         return await self._send_post_request_async("/query", data, session)
-    async def query_data_not_update_async(self, game_name: str, cnt: Optional[int] = 100, session: Optional[aiohttp.ClientSession] = None) -> Tuple[int, Dict[str, Any]]:
+    async def query_data_not_update_async(self, game_name: str, cnt: Optional[int] = 100, is_desc: Optional[bool] = False, session: Optional[aiohttp.ClientSession] = None) -> Tuple[int, Dict[str, Any]]:
         data = {
             "game_name": game_name,
             "cnt": cnt or 100,
+            "is_desc": is_desc or False,
         }
         return await self._send_post_request_async("/query_no_update", data, session)
 

@@ -40,11 +40,9 @@ def worker(token, talk_channel, claimed_map, claimed_lock, use_sync):
     async def async_worker_loop():
         pid = os.getpid()
         local_count = 0
-        loop = asyncio.get_running_loop()
         background_tasks = set()
         bd_round = 1
         friend_items_num = 0
-        start_time = time.time() # 初始化开始时间
         # 包装任务以捕获异常
         async def run_add_task(coro):
             try:
@@ -58,13 +56,16 @@ def worker(token, talk_channel, claimed_map, claimed_lock, use_sync):
         # ttl_dns_cache: DNS 缓存时间
         connector = aiohttp.TCPConnector(limit=50, limit_per_host=10, ttl_dns_cache=300)
         timeout = aiohttp.ClientTimeout(total=60, connect=20)
-        
         async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
             while True:
                 try:
                     if mode in ["4","5"]:
+                        if mode == "4":
+                            is_desc = False
+                        else:
+                            is_desc = True
                         # 1. 查询数据 (直接调用异步方法)
-                        status_code, response = await local_client.query_data_not_update_async("arc_game", 10, session=session)
+                        status_code, response = await local_client.query_data_not_update_async("arc_game", 10, is_desc, session=session)
                     else:
                         status_code, response = await local_client.query_data_async("arc_game", mode_time, talk_channel, 10, session=session)
                     
@@ -80,7 +81,6 @@ def worker(token, talk_channel, claimed_map, claimed_lock, use_sync):
                     if status_code != 200:
                         print(f"查询数据失败: status={status_code}, msg={response}")
                     friend_items = []
-                    data = response.get("data", [])
                     if isinstance(data, list):
                         for item in data:
                             account = item.get("account")
@@ -172,7 +172,7 @@ class Invite(py_trees.behaviour.Behaviour):
         
     def update(self) -> py_trees.common.Status:
         mode = arc_api.select_mode()
-        if mode not in ["2", "3"]:
+        if mode == "1":
             return py_trees.common.Status.SUCCESS
             
         # 每次 update 都重新读取 Token，支持运行时修改配置文件
