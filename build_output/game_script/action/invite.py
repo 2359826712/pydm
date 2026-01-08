@@ -80,6 +80,8 @@ def worker(token, talk_channel, claimed_map, claimed_lock, use_sync):
                         continue
                     if status_code != 200:
                         print(f"查询数据失败: status={status_code}, msg={response}")
+                    
+                    data = response.get("data", [])
                     friend_items = []
                     if isinstance(data, list):
                         for item in data:
