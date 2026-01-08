@@ -1,5 +1,5 @@
 [setting]
-model = 4
+model = 1
 1 采集 2不同号不同token加好友 3 同个号不同token 4.计次 5.倒着计次
 time = 2880
 单位分钟

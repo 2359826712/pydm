@@ -15,7 +15,7 @@ arc_api = Arc_api()
 arc_api.create_new_game("arc_account")
 
 def import_accounts():
-    file_path = os.path.join(script_dir, "account.text")
+    file_path = os.path.join(script_dir, "account.txt")
     if not os.path.exists(file_path):
         print(f"文件不存在: {file_path}")
         return
@@ -29,7 +29,7 @@ def import_accounts():
                 if not line:
                     continue
                 
-                parts = line.split("|")
+                parts = line.split()
                 if len(parts) >= 2:
                     account = parts[0].strip()
                     password = parts[1].strip()
