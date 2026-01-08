@@ -19,6 +19,13 @@ sys.path.append(os.path.join(script_dir))  # 添加上一级目录
 
 arc_api = Arc_api()
 channel = arc_api.get_channel()
+mode = arc_api.select_mode()
+mode_time = arc_api.get_mode_time()
+try:
+    mode_time = int(mode_time)
+except (TypeError, ValueError):
+    mode_time = 86400
+
 def worker(token, talk_channel, claimed_map, claimed_lock, use_sync):
     """
     工作进程函数：持续查询并发送请求 (Async Version)
@@ -55,10 +62,13 @@ def worker(token, talk_channel, claimed_map, claimed_lock, use_sync):
         async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
             while True:
                 try:
-                    # 1. 查询数据 (直接调用异步方法)
-                    status_code, response = await local_client.query_data_not_update_async("arc_game",  10)
+                    if mode in ["4","5"]:
+                        # 1. 查询数据 (直接调用异步方法)
+                        status_code, response = await local_client.query_data_not_update_async("arc_game", 10, session=session)
+                    else:
+                        status_code, response = await local_client.query_data_async("arc_game", mode_time, talk_channel, 10, session=session)
                     
-                    if status_code == 401:
+                    if status_code == 401 and mode in ["4","5"]:
                         bd_round+=1
                         await asyncio.sleep(5)
                         await local_client.reset_Query_Counter_async("arc_game")
@@ -67,7 +77,8 @@ def worker(token, talk_channel, claimed_map, claimed_lock, use_sync):
                                 claimed_map.clear()
                         friend_items_num = 0
                         continue
-
+                    if status_code != 200:
+                        print(f"查询数据失败: status={status_code}, msg={response}")
                     friend_items = []
                     data = response.get("data", [])
                     if isinstance(data, list):
@@ -75,7 +86,16 @@ def worker(token, talk_channel, claimed_map, claimed_lock, use_sync):
                             account = item.get("account")
                             if account:
                                 friend_items.append(item)
-                    
+                    if status_code == 200 and not friend_items:
+                        # 如果没查到数据，休眠一会再试
+                        bd_round+=1
+                        await asyncio.sleep(5)
+                        await local_client.clear_talk_channel_async("arc_game", talk_channel, session=session)
+                        if use_sync:
+                            with claimed_lock:
+                                claimed_map.clear()
+                        friend_items_num = 0
+                        continue
                     friend_items_num = len(friend_items)+friend_items_num
                     success, blocked = get_stats()
                     print(f"进程id{pid} | Token [...{token[-6:]}] | 已进行{bd_round}轮，已发送{local_count}次，正在进行添加{friend_items_num}个好友，成功{success}个，被拉黑{blocked}个")
