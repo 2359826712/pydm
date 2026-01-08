@@ -704,97 +704,97 @@ class Arc_api:
                 "rect": [int(rx), int(ry), int(rw), int(rh)]
             })
         return out
-    # def _send_post_request_account(self, endpoint, data):
-    #     """通用 POST 请求"""
-    #     request_url = f"{self.server_url_account}{endpoint}"
-    #     try:
-    #         # json=data 会自动设置 Content-Type: application/json 并序列化
-    #         response = self._http.post(request_url, json=data, timeout=10)
-    #         status_code = response.status_code
-    #         try:
-    #             # 尝试解析 JSON 响应
-    #             resp_data = response.json()
-    #         except ValueError:
-    #             # 解析失败，返回原始文本
-    #             resp_data = {"raw_text": response.text, "parse_error": "Invalid JSON"}
+    def _send_post_request_account(self, endpoint, data):
+        """通用 POST 请求"""
+        request_url = f"{self.server_url_account}{endpoint}"
+        try:
+            # json=data 会自动设置 Content-Type: application/json 并序列化
+            response = self._http.post(request_url, json=data, timeout=10)
+            status_code = response.status_code
+            try:
+                # 尝试解析 JSON 响应
+                resp_data = response.json()
+            except ValueError:
+                # 解析失败，返回原始文本
+                resp_data = {"raw_text": response.text, "parse_error": "Invalid JSON"}
             
-    #         return status_code, resp_data
+            return status_code, resp_data
             
-    #     except requests.exceptions.RequestException as e:
-    #         print(f"请求失败: {e}")
-    #         return 0, {"error": str(e)}
+        except requests.exceptions.RequestException as e:
+            print(f"请求失败: {e}")
+            return 0, {"error": str(e)}
 
-    # def create_new_game_acc(self, game_name):
-    #     """创建新游戏账号表"""
-    #     return self._send_post_request_account("/createNewGame", {"game_name": game_name})
+    def create_new_game(self, game_name):
+        """创建新游戏账号表"""
+        return self._send_post_request_account("/createNewGame", {"game_name": game_name})
 
-    # def insert_data_game(self, game_name, account, password, b_zone, s_zone, status, in_use, level, computer_number):
-    #     """
-    #     插入账号数据
-    #     status: 0:未封号 1:封号 2:账号异常
-    #     """
-    #     data = {
-    #         "game_name": game_name,
-    #         "account": account,
-    #         "password": password,
-    #         "b_zone": b_zone,
-    #         "s_zone": s_zone,
-    #         "level": level,
-    #         "computer_number": computer_number,
-    #         "status": status,
-    #         "in_use": in_use
-    #     }
-    #     status_code, response = self._send_post_request_account("/insert", data)
-    #     # print("=== 插入数据 ===")
-    #     # print(f"状态码: {status_code}")
-    #     return status_code, response
+    def insert_data_game(self, game_name, account, password, b_zone, s_zone, status, in_use, level, computer_number):
+        """
+        插入账号数据
+        status: 0:未封号 1:封号 2:账号异常
+        """
+        data = {
+            "game_name": game_name,
+            "account": account,
+            "password": password,
+            "b_zone": b_zone,
+            "s_zone": s_zone,
+            "level": level,
+            "computer_number": computer_number,
+            "status": status,
+            "in_use": in_use
+        }
+        status_code, response = self._send_post_request_account("/insert", data)
+        # print("=== 插入数据 ===")
+        # print(f"状态码: {status_code}")
+        return status_code, response
 
-    # def query_data_game(self, info):
-    #     """
-    #     查询账号数据
-    #     info: 字典，包含查询条件
-    #     """
-    #     data = {
-    #         "game_name": info.get("game_name"),
-    #         "status": info.get("status"),
-    #         "in_use": info.get("in_use"),
-    #         "level": info.get("level"),
-    #         "computer_number": info.get("computer_number")
-    #     }
-    #     status_code, response = self._send_post_request_account("/query", data)
-    #     # print("=== 查询数据 ===")
-    #     # print(f"状态码: {status_code}")
-    #     # print(f"响应: {response}")
-    #     return status_code, response
+    def query_data_game(self, info):
+        """
+        查询账号数据
+        info: 字典，包含查询条件
+        """
+        data = {
+            "game_name": info.get("game_name"),
+            "status": info.get("status"),
+            "in_use": info.get("in_use"),
+            "level": info.get("level"),
+            "computer_number": info.get("computer_number")
+        }
+        status_code, response = self._send_post_request_account("/query", data)
+        # print("=== 查询数据 ===")
+        # print(f"状态码: {status_code}")
+        # print(f"响应: {response}")
+        return status_code, response
 
-    # def update_data_game(self, info):
-    #     """
-    #     更新账号数据
-    #     info: 字典，包含更新内容
-    #     """
-    #     data = {
-    #         "game_name": info.get("game_name"),
-    #         "account": info.get("account"),
-    #         "status": info.get("status"),
-    #         "level": info.get("level"),
-    #         "computer_number": info.get("computer_number"),
-    #         "in_use": info.get("in_use")
-    #     }
-    #     status_code, response = self._send_post_request_account("/update", data)
-    #     # print("=== 更新数据 ===")
-    #     # print(f"状态码: {status_code}")
-    #     return status_code, response
+    def update_data_game(self, info):
+        """
+        更新账号数据
+        info: 字典，包含更新内容
+        """
+        data = {
+            "game_name": info.get("game_name"),
+            "account": info.get("account"),
+            "status": info.get("status"),
+            "level": info.get("level"),
+            "computer_number": info.get("computer_number"),
+            "in_use": info.get("in_use")
+        }
+        status_code, response = self._send_post_request_account("/update", data)
+        # print("=== 更新数据 ===")
+        # print(f"状态码: {status_code}")
+        return status_code, response
 
-    # def delete_data_game(self, game_name, account):
-    #     """删除账号数据"""
-    #     data = {
-    #         "game_name": game_name,
-    #         "account": account
-    #     }
-    #     status_code, response = self._send_post_request_account("/delete", data)
-    #     # print("=== 删除数据 ===")
-    #     # print(f"状态码: {status_code}")
-    #     return status_code, response
+    def delete_data_game(self, game_name, account):
+        """删除账号数据"""
+        data = {
+            "game_name": game_name,
+            "account": account
+        }
+        status_code, response = self._send_post_request_account("/delete", data)
+        # print("=== 删除数据 ===")
+        # print(f"状态码: {status_code}")
+        return status_code, response
     def get_local_ip(self):
         """
         获取本机 IPv4 地址 (解析 ipconfig 输出)
