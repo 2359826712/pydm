@@ -20,7 +20,7 @@ class ApiClient:
         
         try:
             if session:
-                async with session.post(url, json=data, headers=headers, timeout=10) as response:
+                async with session.post(url, json=data, headers=headers, timeout=30) as response:
                     text = await response.text()
                     status_code = response.status
                     try:
@@ -30,7 +30,7 @@ class ApiClient:
                     return status_code, parsed
             else:
                 async with aiohttp.ClientSession() as new_session:
-                    async with new_session.post(url, json=data, headers=headers, timeout=10) as response:
+                    async with new_session.post(url, json=data, headers=headers, timeout=30) as response:
                         text = await response.text()
                         status_code = response.status
                         try:
@@ -49,7 +49,7 @@ class ApiClient:
         url = self._build_url(endpoint)
         headers = {"Content-Type": "application/json"}
         try:
-            response = self.sync_session.post(url, json=data, headers=headers, timeout=10)
+            response = self.sync_session.post(url, json=data, headers=headers, timeout=30)
             try:
                 parsed = response.json()
             except ValueError:
@@ -74,7 +74,7 @@ class ApiClient:
         req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
 
         try:
-            with urllib.request.urlopen(req, timeout=10) as resp:
+            with urllib.request.urlopen(req, timeout=30) as resp:
                 text = resp.read().decode("utf-8", errors="replace")
                 status_code = resp.status
         except urllib.error.HTTPError as e:

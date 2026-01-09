@@ -76,9 +76,17 @@ class Start_Game(py_trees.behaviour.Behaviour):
             else:
                 print("创建服务器数据表失败")
                 print("状态码：",code)
-                if self.create_number >= 10 :
+                try:
+                    if isinstance(resp, dict):
+                        err_msg = resp.get("error") or resp.get("message") or resp.get("raw_text")
+                        if err_msg:
+                            print("错误信息：", err_msg)
+                except Exception:
+                    pass
+                if self.create_number >= 10:
                     logger.error("多次创建服务器数据表失败")
-                self.create_number = self.create_number + 1
+                    return py_trees.common.Status.FAILURE
+                self.create_number += 1
                 time.sleep(1)
                 return py_trees.common.Status.RUNNING
         self.create_number  = 0
