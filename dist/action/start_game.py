@@ -33,6 +33,8 @@ class Start_Game(py_trees.behaviour.Behaviour):
         self.blackboard.register_key(key="create_collect", access=py_trees.common.Access.READ)#READ
         self.blackboard.register_key(key="create_collect", access=py_trees.common.Access.WRITE)#READ
         self.blackboard.register_key(key="init_dll", access=py_trees.common.Access.READ)#READ
+        self.blackboard.register_key(key="middle_window_click", access=py_trees.common.Access.READ)#READ
+        self.blackboard.register_key(key="middle_window_click", access=py_trees.common.Access.WRITE)#READ
         self.time = 0
         self.create_number  = 0
         self.first_add_friend  = False
@@ -74,9 +76,17 @@ class Start_Game(py_trees.behaviour.Behaviour):
             else:
                 print("创建服务器数据表失败")
                 print("状态码：",code)
-                if self.create_number >= 10 :
+                try:
+                    if isinstance(resp, dict):
+                        err_msg = resp.get("error") or resp.get("message") or resp.get("raw_text")
+                        if err_msg:
+                            print("错误信息：", err_msg)
+                except Exception:
+                    pass
+                if self.create_number >= 10:
                     logger.error("多次创建服务器数据表失败")
-                self.create_number = self.create_number + 1
+                    return py_trees.common.Status.FAILURE
+                self.create_number += 1
                 time.sleep(1)
                 return py_trees.common.Status.RUNNING
         self.create_number  = 0
@@ -94,11 +104,11 @@ class Start_Game(py_trees.behaviour.Behaviour):
             time.sleep(0.5)
             print("点击中间弹窗")
             arc_api.mouse_click(948,523,0)
-            self.middle_window_click = True
+            self.blackboard.middle_window_click = True
             return py_trees.common.Status.RUNNING
         ans_pos = arc_api.FindColorE(811,536,879,553,"b39347-000000|665632-000000",1.0,0)
         ans_pos = ans_pos.split("|")
-        if int(ans_pos[1]) > 0 and not self.middle_window_click:
+        if int(ans_pos[1]) > 0 and not self.blackboard.middle_window_click:
             time.sleep(0.5)
             print("反馈页面")
             arc_api.mouse_click(739,545,0)
@@ -149,12 +159,9 @@ class Start_Game(py_trees.behaviour.Behaviour):
         if int(pos[0]) > 0 :
             time.sleep(0.5)
             print("点击开始")
-            arc_api.move_to(1256,711)
+            arc_api.system_move_to(1401,771)
             time.sleep(0.5)
-            arc_api.move_to(1402,736)
-            time.sleep(0.5)
-            arc_api.mouse_click(1402,736,0)
-            self.middle_window_click = False
+            arc_api.system_click()
             return py_trees.common.Status.RUNNING
         else:
             map_select = arc_api.FindColorE(432,442,593,600,"9c8b71-000000|94846c-000000",1.0,0)

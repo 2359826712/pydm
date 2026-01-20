@@ -70,7 +70,7 @@ class ArcGameManager:
         self._is_loaded: bool = False
         # Check mode first
         mode = self._get_select_mode()
-        if mode in ["2", "3"]:
+        if mode != "1":
             logger.info("Current mode is 2 or 3, skipping DLL loading.")
             self._initialized = True
             return

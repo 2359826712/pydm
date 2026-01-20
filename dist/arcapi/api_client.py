@@ -1,33 +1,43 @@
 import json
 import asyncio
 import aiohttp
+import requests
 from typing import Tuple, Dict, Any, Optional
 
 class ApiClient:
     def __init__(self, server_url: str = "http://192.168.20.81:9096"):
         self.server_url = server_url.rstrip("/")
+        self.sync_session = requests.Session()
 
     def _build_url(self, endpoint: str) -> str:
         if not endpoint.startswith("/"):
             endpoint = "/" + endpoint
         return self.server_url + endpoint
 
-    async def _send_post_request_async(self, endpoint: str, data: dict) -> Tuple[int, Dict[str, Any]]:
+    async def _send_post_request_async(self, endpoint: str, data: dict, session: Optional[aiohttp.ClientSession] = None) -> Tuple[int, Dict[str, Any]]:
         url = self._build_url(endpoint)
         headers = {"Content-Type": "application/json"}
         
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(url, json=data, headers=headers, timeout=10) as response:
+            if session:
+                async with session.post(url, json=data, headers=headers, timeout=30) as response:
                     text = await response.text()
                     status_code = response.status
-                    
                     try:
                         parsed = json.loads(text) if text else {}
                     except json.JSONDecodeError as e:
                         parsed = {"raw_text": text, "parse_error": str(e)}
-                        
                     return status_code, parsed
+            else:
+                async with aiohttp.ClientSession() as new_session:
+                    async with new_session.post(url, json=data, headers=headers, timeout=30) as response:
+                        text = await response.text()
+                        status_code = response.status
+                        try:
+                            parsed = json.loads(text) if text else {}
+                        except json.JSONDecodeError as e:
+                            parsed = {"raw_text": text, "parse_error": str(e)}
+                        return status_code, parsed
                     
         except asyncio.TimeoutError:
             return 408, {"error": "Request timed out"}
@@ -36,8 +46,17 @@ class ApiClient:
 
     # 保留同步接口用于兼容旧代码，但底层调用异步方法
     def send_post_request(self, endpoint: str, data: dict) -> Tuple[int, Dict[str, Any]]:
+        url = self._build_url(endpoint)
+        headers = {"Content-Type": "application/json"}
         try:
-            return asyncio.run(self._send_post_request_async(endpoint, data))
+            response = self.sync_session.post(url, json=data, headers=headers, timeout=30)
+            try:
+                parsed = response.json()
+            except ValueError:
+                parsed = {"raw_text": response.text, "parse_error": "JSONDecodeError"}
+            return response.status_code, parsed
+        except requests.RequestException as e:
+            return 0, {"error": str(e)}
         except RuntimeError:
             # 如果已经在事件循环中（例如在 run_in_executor 中），则创建一个新循环或直接报错是不行的
             # 但由于我们主要在 invite.py 中改为全异步，这里的同步 fallback 主要是给 start_game.py 等遗留同步代码用的
@@ -55,7 +74,7 @@ class ApiClient:
         req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
 
         try:
-            with urllib.request.urlopen(req, timeout=10) as resp:
+            with urllib.request.urlopen(req, timeout=30) as resp:
                 text = resp.read().decode("utf-8", errors="replace")
                 status_code = resp.status
         except urllib.error.HTTPError as e:
@@ -91,19 +110,28 @@ class ApiClient:
         }
         return await self._send_post_request_async("/insert", data)
 
-    async def query_data_async(self, game_name: str, online_duration: Optional[int] = 1, talk_channel: Optional[int] = 0, cnt: Optional[int] = 100) -> Tuple[int, Dict[str, Any]]:
+    async def query_data_async(self, game_name: str, online_duration: Optional[int] = 1, talk_channel: Optional[int] = 0, cnt: Optional[int] = 100, session: Optional[aiohttp.ClientSession] = None) -> Tuple[int, Dict[str, Any]]:
         data = {
             "game_name": game_name,
-            "online_duration": online_duration or 1,
-            "talk_channel": talk_channel or 0,
-            "cnt": cnt or 100,
+            "online_duration": online_duration ,
+            "talk_channel": talk_channel ,
+            "cnt": cnt ,
         }
-        return await self._send_post_request_async("/query", data)
+        return await self._send_post_request_async("/query", data, session)
+    async def query_data_not_update_async(self, game_name: str, cnt: Optional[int] = 100, is_desc: Optional[bool] = False, session: Optional[aiohttp.ClientSession] = None) -> Tuple[int, Dict[str, Any]]:
+        data = {
+            "game_name": game_name,
+            "cnt": cnt ,
+            "is_desc": is_desc,
+        }
+        return await self._send_post_request_async("/query_no_update", data, session)
 
-    async def clear_talk_channel_async(self, game_name: str, talk_channel: int) -> Tuple[int, Dict[str, Any]]:
+    async def reset_Query_Counter_async(self, game_name: str) -> Tuple[int, Dict[str, Any]]:
+        data = {"game_name": game_name}
+        return await self._send_post_request_async("/resetQueryCounter", data)
+    async def clear_talk_channel_async(self, game_name: str, talk_channel: int, session: Optional[aiohttp.ClientSession] = None) -> Tuple[int, Dict[str, Any]]:
         data = {"game_name": game_name, "talk_channel": talk_channel}
-        return await self._send_post_request_async("/clearTalkChannel", data)
-
+        return await self._send_post_request_async("/clearTalkChannel", data, session)
     async def update_data_async(self, game_name: str, account: str, b_zone: str, s_zone: str, rating: int) -> Tuple[int, Dict[str, Any]]:
         data = {
             "game_name": game_name,

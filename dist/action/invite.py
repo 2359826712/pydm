@@ -19,6 +19,13 @@ sys.path.append(os.path.join(script_dir))  # 添加上一级目录
 
 arc_api = Arc_api()
 channel = arc_api.get_channel()
+mode = arc_api.select_mode()
+mode_time = arc_api.get_mode_time()
+try:
+    mode_time = int(mode_time)
+except (TypeError, ValueError):
+    mode_time = 86400
+
 def worker(token, talk_channel, claimed_map, claimed_lock, use_sync):
     """
     工作进程函数：持续查询并发送请求 (Async Version)
@@ -33,7 +40,6 @@ def worker(token, talk_channel, claimed_map, claimed_lock, use_sync):
     async def async_worker_loop():
         pid = os.getpid()
         local_count = 0
-        loop = asyncio.get_running_loop()
         background_tasks = set()
         bd_round = 1
         friend_items_num = 0
@@ -50,35 +56,51 @@ def worker(token, talk_channel, claimed_map, claimed_lock, use_sync):
         # ttl_dns_cache: DNS 缓存时间
         connector = aiohttp.TCPConnector(limit=50, limit_per_host=10, ttl_dns_cache=300)
         timeout = aiohttp.ClientTimeout(total=60, connect=20)
-        
         async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
             while True:
                 try:
-                    # 1. 查询数据 (直接调用异步方法)
-                    status_code, response = await local_client.query_data_async("arc_game", 86400, talk_channel, 10)
-                    friend_items = []
-                    if status_code == 200:
-                        data = response.get("data", [])
-                        if isinstance(data, list):
-                            for item in data:
-                                account = item.get("account")
-                                if account:
-                                    friend_items.append(item)
+                    if mode in ["4","5"]:
+                        if mode == "4":
+                            is_desc = False
+                        else:
+                            is_desc = True
+                        # 1. 查询数据 (直接调用异步方法)
+                        status_code, response = await local_client.query_data_not_update_async("arc_game", 10, is_desc, session=session)
+                    else:
+                        status_code, response = await local_client.query_data_async("arc_game", mode_time, talk_channel, 10, session=session)
                     
-                    if not friend_items:
-                        # 如果没查到数据，休眠一会再试
+                    if status_code == 401 and mode in ["4","5"]:
                         bd_round+=1
                         await asyncio.sleep(5)
-                        await local_client.clear_talk_channel_async("arc_game", talk_channel)
+                        await local_client.reset_Query_Counter_async("arc_game")
                         if use_sync:
                             with claimed_lock:
                                 claimed_map.clear()
                         friend_items_num = 0
                         continue
+                    if status_code != 200:
+                        print(f"查询数据失败: status={status_code}, msg={response}")
                     
+                    data = response.get("data", [])
+                    friend_items = []
+                    if isinstance(data, list):
+                        for item in data:
+                            account = item.get("account")
+                            if account:
+                                friend_items.append(item)
+                    if status_code == 200 and not friend_items:
+                        # 如果没查到数据，休眠一会再试
+                        bd_round+=1
+                        await asyncio.sleep(5)
+                        await local_client.clear_talk_channel_async("arc_game", talk_channel, session=session)
+                        if use_sync:
+                            with claimed_lock:
+                                claimed_map.clear()
+                        friend_items_num = 0
+                        continue
                     friend_items_num = len(friend_items)+friend_items_num
                     success, blocked = get_stats()
-                    print(f"进程id{pid} | Token [...{token[-6:]}] | 频道 {talk_channel} | 已进行{bd_round}轮，已发送{local_count}次，正在进行添加{friend_items_num}个好友，成功{success}个，被拉黑{blocked}个")
+                    print(f"进程id{pid} | Token [...{token[-6:]}] | 已进行{bd_round}轮，已发送{local_count}次，正在进行添加{friend_items_num}个好友，成功{success}个，被拉黑{blocked}个")
                     # 2. 异步并发处理查询到的好友
                     current_batch_tasks = []
                     for item in friend_items:
@@ -121,7 +143,7 @@ def worker(token, talk_channel, claimed_map, claimed_lock, use_sync):
                         # 检查是否需要发送固定好友
                         if local_count > 0 and local_count % 100 == 0:
                             # print(f"Token [...{token[-6:]}] 本次运行已发送 {local_count} 次，正在发送固定好友: MMOEXPsellitem18#0342")
-                            fixed_coro = add_friend_by_http_async("MMOEXPsellitem18#0342", token, session)
+                            fixed_coro = add_friend_by_http_async("MMOELD.COM_items#4577", token, session)
                             fixed_task = asyncio.create_task(run_add_task(fixed_coro))
                             background_tasks.add(fixed_task)
                             fixed_task.add_done_callback(background_tasks.discard)
@@ -152,7 +174,7 @@ class Invite(py_trees.behaviour.Behaviour):
         
     def update(self) -> py_trees.common.Status:
         mode = arc_api.select_mode()
-        if mode not in ["2", "3"]:
+        if mode == "1":
             return py_trees.common.Status.SUCCESS
             
         # 每次 update 都重新读取 Token，支持运行时修改配置文件
