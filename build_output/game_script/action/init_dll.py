@@ -36,7 +36,7 @@ class Init_Dll(py_trees.behaviour.Behaviour):
     def _check_and_click_continue(self):
         """检查并点击继续按钮"""
         # 检查图片
-        continue_pos_pic = arc_api.FindPic(1480,875,1541,911,"continue.bmp","000000",1.0,0)
+        continue_pos_pic = arc_api.AiFindPicEx(1480,875,1541,911,"continue.bmp",0.85,0)
         if int(continue_pos_pic[1]) > 0:
             time.sleep(0.5)
             print("点击继续(图片)")

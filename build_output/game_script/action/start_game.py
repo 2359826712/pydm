@@ -148,7 +148,7 @@ class Start_Game(py_trees.behaviour.Behaviour):
             arc_api.click_keyworld("esc")
             time.sleep(1.5)
             return py_trees.common.Status.RUNNING
-        continue_pos_pic = arc_api.FindPic(0,0,1541,911,"continue.bmp","000000",1.0,0)
+        continue_pos_pic = arc_api.AiFindPicEx(0,0,1541,911,"continue.bmp",0.85,0)
         if int(continue_pos_pic[1]) > 0:
             time.sleep(0.5)
             print("继续页面")

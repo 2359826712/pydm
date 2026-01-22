@@ -35,7 +35,7 @@ class Exit_Game(py_trees.behaviour.Behaviour):
             time.sleep(0.5)
             print("点击投降")
             arc_api.mouse_click(135,637,0)
-        continue_pos_pic = arc_api.FindPic(0,0,1541,911,"continue.bmp","000000",1.0,0)
+        continue_pos_pic = arc_api.AiFindPicEx(0,0,1541,911,"continue.bmp",0.85,0)
         if int(continue_pos_pic[1]) > 0:
             time.sleep(0.5)
             print("继续页面")

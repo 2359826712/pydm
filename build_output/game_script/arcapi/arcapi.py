@@ -77,11 +77,17 @@ class Arc_api:
             pass
     def init_data(self):
         # print(f"当前大漠插件版本: {dm.Ver()}")
+        if getattr(sys, 'frozen', False):
+             ai_path = os.path.join(os.path.dirname(sys.executable), 'ai.module')
+        else:
+             ai_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../ai.module'))
+        
         ret = dm.RegEx("aa3284965360fb57d3f81ef4ce8379669bd756f91f5" , "" , "121.204.249.29|121.204.253.161|125.77.165.62|125.77.165.131")
         if ret != -1:
             print("注册成功")
         else:
             print("注册失败")
+        dm.LoadAi(ai_path)
         dm.SetMouseDelay("normal",50)
         dm.SetKeypadDelay("normal",30)
         dm.SetMouseSpeed(6)
@@ -837,3 +843,16 @@ class Arc_api:
     def SetScreen(self, width, height,depth=32):
         """设置屏幕大小"""
         return dm.SetScreen(width, height,depth)
+    def AiFindPicEx(self, x1, y1, x2, y2, pic_name,sim, dir = 0):
+        pic = f"{self.pic_dir}\\{pic_name}"
+        ret = dm.AiFindPicEx(x1, y1, x2, y2, pic,sim, dir)
+        if not ret:
+            return None
+        first = ret.split("|")[0]
+        parts = first.split(",")
+        if len(parts) < 3:
+            return None
+        try:
+            return [int(parts[0]), int(parts[1]), int(parts[2])]
+        except ValueError:
+            return None
